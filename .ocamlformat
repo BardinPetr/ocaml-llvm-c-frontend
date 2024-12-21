@@ -1,0 +1,7 @@
+profile = default
+version = 0.26.2
+
+parse-docstrings = true
+if-then-else = k-r
+break-infix=wrap-or-vertical
+break-infix-before-func=true
