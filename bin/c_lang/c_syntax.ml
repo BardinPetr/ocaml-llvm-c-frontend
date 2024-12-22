@@ -1,14 +1,15 @@
 type c_type =
-  | Void
-  | Char
-  | Short
-  | Int
-  | Long
-  | Float
-  | Double
-  | Ptr of c_type
-  | Array of c_type * int
-  | Struct of string
+  | TVoid
+  | TChar
+  | TShort
+  | TInt
+  | TLong
+  | TFloat
+  | TDouble
+  | TPtr of c_type
+  | TArray of c_type * int
+  | TStruct of string
+  | TOther of string
 [@@deriving show]
 
 type literal =
@@ -18,7 +19,15 @@ type literal =
   | StringLit of string
 [@@deriving show]
 
-type unary_op = Neg | Not | Deref | Addr [@@deriving show]
+type unary_op =
+  | UOPreMinus
+  | UOPreInv
+  | UOPreNeg
+  | UOPreInc
+  | UOPreDec
+  | Deref
+  | Addr
+[@@deriving show]
 
 type binary_op =
   | Add
@@ -43,7 +52,8 @@ type binary_op =
 [@@deriving show]
 
 type expr =
-  | Literal of literal
+  | ExLiteral of literal
+  | ExId of string
   | Var of string
   | UnaryOp of unary_op * expr
   | BinaryOp of binary_op * expr * expr
@@ -55,15 +65,15 @@ type expr =
 [@@deriving show]
 
 type stmt =
-  | ExprStmt of expr
-  | If of expr * stmt * stmt option
-  | For of stmt option * expr option * stmt option * stmt
-  | While of expr * stmt
-  | Do of stmt * expr
-  | Switch of expr * (int * stmt) list * stmt option
-  | Break
-  | Continue
-  | Return of expr option
+  | StExpr of expr
+  | StIf of expr * stmt * stmt option
+  | StFor of stmt option * expr option * stmt option * stmt
+  | StWhile of expr * stmt
+  | StDo of stmt * expr
+  | StSwitch of expr * (int * stmt) list * stmt option
+  | StBreak
+  | StContinue
+  | StReturn of expr option
 [@@deriving show]
 
 type func_decl =

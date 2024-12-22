@@ -17,34 +17,33 @@ let _ =
     ("long", TYP_LONG);
     ("float", TYP_FLOAT);
     ("double", TYP_DOUBLE);
-    ("struct", CW_STRUCT);
+    ("struct", KW_STRUCT);
 
     (* control *)
-    ("break", CW_BREAK);
-    ("case", CW_CASE);
-    ("continue", CW_CONTINUE);
-    ("default", CW_DEFAULT);
-    ("do", CW_DO);
-    ("else", CW_ELSE);
-    ("float", CW_FLOAT);
-    ("for", CW_FOR);
-    ("goto", CW_GOTO);
-    ("if", CW_IF);
-    ("return", CW_RETURN);
-    ("switch", CW_SWITCH);
-    ("while", CW_WHILE); 
-    ("sizeof", CW_SIZEOF);
+    ("break", KW_BREAK);
+    ("case", KW_CASE);
+    ("continue", KW_CONTINUE);
+    ("default", KW_DEFAULT);
+    ("do", KW_DO);
+    ("else", KW_ELSE);
+    ("float", KW_FLOAT);
+    ("for", KW_FOR);
+    ("if", KW_IF);
+    ("return", KW_RETURN);
+    ("switch", KW_SWITCH);
+    ("while", KW_WHILE); 
+    ("sizeof", KW_SIZEOF);
 
     (* NOT IMPLEMENTED *)
     (* ("const", CONST); ??? *)
-    (* ("extern", CW_EXTERN); ??? *)
-    (* ("static", CW_STATIC); ??? *)
-    (* ("enum", CW_ENUM); ???*) 
-    (* ("volatile", CW_VOLATILE); *)
-    (* ("union", CW_UNION); *)
-    (* ("typedef", CW_TYPEDEF); *)
-    (* ("signed", CW_SIGNED); *)
-    (* ("unsigned", CW_UNSIGNED); *)
+    (* ("extern", KW_EXTERN); ??? *)
+    (* ("static", KW_STATIC); ??? *)
+    (* ("enum", KW_ENUM); ???*) 
+    (* ("volatile", KW_VOLATILE); *)
+    (* ("union", KW_UNION); *)
+    (* ("typedef", KW_TYPEDEF); *)
+    (* ("signed", KW_SIGNED); *)
+    (* ("unsigned", KW_UNSIGNED); *)
   ]
 
 let id_or_keyword lexbuf =
@@ -79,26 +78,25 @@ rule read =
   | string as i { LIT_STRING (Scanf.unescaped (String.sub i 1 (String.length i - 2))) }
   
   (* operators *)
-  | ">>" { OP_RIGHT }
-  | "<<" { OP_LEFT }
-  | "+" { OP_ADD }
-  | "-" { OP_SUB }
+  | "+" { OP_PLUS }
+  | "-" { OP_MINUS }
   | "*" { OP_STAR }
   | "/" { OP_DIV }
   | "%" { OP_MOD }
-  | "&" { OP_AND }
+  | "&" { OP_AMPERSAND }
   | "^" { OP_XOR }
   | "|" { OP_OR }
   | "&&" { OP_LAND }
   | "||" { OP_LOR }
+  | ">>" { OP_RIGHT }
+  | "<<" { OP_LEFT }
   | "->" { OP_ARROW }
   | "." { OP_DOT }
-  | "++" { OP_INC }
-  | "--" { OP_DEC }
-
   (* unary operators *)
   | '!' { UOP_NEG }
   | '~' { UOP_INV }
+  | "++" { UOP_INC }
+  | "--" { UOP_DEC }
 
   (* assignment *)
   | "=" { ASN_BASE }
@@ -134,6 +132,7 @@ rule read =
   | "," { PU_COMMA }
 
   (* final *)
+  | eof { EOF }
   | id { id_or_keyword lexbuf }
   | _ { raise (SyntaxError ("Unexpected char: " ^ Lexing.lexeme lexbuf)) }
 

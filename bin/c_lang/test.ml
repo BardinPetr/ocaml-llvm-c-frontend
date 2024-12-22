@@ -1,8 +1,15 @@
 open Printf
 
-let parse_default x = x |> Main.parse |> C_syntax.show_expr |> printf "%s\n"
+let parse_default x =
+  x
+  |> Main.parse
+  |> List.map C_syntax.show_stmt
+  |> String.concat ";\n"
+  |> printf "%s\n"
+
 let lex_default x = x |> Main.lex |> Main.print_tokens
 
+(*
 (* lexer tests *)
 let%expect_test "math" =
   lex_default "1 + 1 * 23 / ( 123 + 13 / 2) * (2 * (2 * 1 / (1)))";
@@ -27,3 +34,9 @@ let%expect_test "comment" =
   7 |};
   [%expect
     {| (C_parser.LIT_INT 1), (C_parser.LIT_INT 2), (C_parser.LIT_INT 3), (C_parser.LIT_INT 4), (C_parser.LIT_INT 5), (C_parser.LIT_INT 6), (C_parser.LIT_INT 7) |}]
+*)
+
+let%expect_test "expression" = parse_default {| 
+  1;
+  2;
+    |}
