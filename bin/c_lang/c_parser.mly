@@ -157,6 +157,19 @@ block_or_line:
   | b=block { b }
   | s=statement { [ s ] }
 
+(* declarations *)
+
+decl_var_init: 
+  | ASN_BASE; e=expression { e }
+
+decl_typed_var:
+  | typ=ex_type; name=IDENTIFIER; arr_dims=list(delimited(BRK_L, LIT_INT, BRK_R))
+    { ((wrap_ctype_array (List.rev arr_dims) typ), name) }
+
+decl_var:
+  | v=decl_typed_var; init=option(decl_var_init) 
+    { match v with (typ, name) -> DeclVar (typ, name, init) }
+
 (* statements *)
 
 st_if_hd: KW_IF; PRH_L; chk=expression; PRH_R { chk }
@@ -177,6 +190,7 @@ st_cmd:
 statement:
   | e = expression; PU_SEMICOLON { StExpr e }
   | s = st_cmd; PU_SEMICOLON { s }
+  | d = decl_var; PU_SEMICOLON { StDecl d }
   | st_if { $1 }
   | st_for { $1 }
   | st_while { $1 }

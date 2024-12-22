@@ -278,3 +278,20 @@ let%expect_test "loops" =
     (C_syntax.StReturn (Some (C_syntax.ExLiteral (C_syntax.IntLit 1))));
     (C_syntax.StReturn None)
     |}]
+
+(* let%expect_test "fun_decl" = parse_default {|
+   |}
+*)
+
+let%expect_test "var_decl" =
+  parse_default
+    {| 
+    {
+    int a;
+    int** a = &a;
+    struct st q;
+    struct st q = 0;
+    int* arr[10][12][14];
+    int arr[10] = 0;
+    }
+  |}

@@ -73,6 +73,12 @@ type expr =
   | ExCall of string * expr list
 [@@deriving show]
 
+type decl =
+  | DeclVar of c_type * string * expr option
+  | FuncProto of c_type * string * (c_type * string) list
+  | StructDecl of string * (c_type * string) list
+[@@deriving show]
+
 type stmt =
   | StExpr of expr
   | StIf of expr * stmt list * stmt list option
@@ -81,16 +87,16 @@ type stmt =
   | StBreak
   | StContinue
   | StReturn of expr option
+  | StDecl of decl
 [@@deriving show]
 
 type func_decl =
   | FuncDecl of c_type * string * (c_type * string) list * stmt list
 [@@deriving show]
 
-type global_decl =
-  | VarDecl of c_type * string
-  | FuncProto of c_type * string * (c_type * string) list
-  | StructDecl of string * (c_type * string) list
-[@@deriving show]
+type program = Prog of decl list * func_decl list [@@deriving show]
 
-type program = Prog of global_decl list * func_decl list [@@deriving show]
+let rec wrap_ctype_array (dims : int list) (typ : c_type) : c_type =
+  match dims with
+  | [] -> typ
+  | hd :: tl -> wrap_ctype_array tl (TArray (typ, hd))
