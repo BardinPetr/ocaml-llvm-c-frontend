@@ -19,49 +19,58 @@ type literal =
   | StringLit of string
 [@@deriving show]
 
-type unary_op =
-  | UOPreMinus
-  | UOPreInv
-  | UOPreNeg
-  | UOPreInc
-  | UOPreDec
-  | Deref
-  | Addr
+type unary_op = UOMinus | UOInv | UONeg | UOInc | UODec | UODeref | UORef
 [@@deriving show]
 
 type binary_op =
-  | Add
-  | Sub
-  | Mul
-  | Div
-  | Mod
-  | Eq
-  | Neq
-  | Lt
-  | Gt
-  | Leq
-  | Geq
-  | And
-  | Or
-  | Assign
-  | AddAssign
-  | SubAssign
-  | MulAssign
-  | DivAssign
-  | ModAssign
+  | OpAdd
+  | OpSub
+  | OpMul
+  | OpDiv
+  | OpMod
+  | OpAnd
+  | OpXor
+  | OpOr
+  | OpLAnd
+  | OpLOr
+  | OpRight
+  | OpLeft
+  | OpCmpLe
+  | OpCmpLt
+  | OpCmpGe
+  | OpCmpGt
+  | OpCmpEq
+  | OpCmpNe
+[@@deriving show]
+
+type asn_op =
+  | AsnBase
+  | AsnRight
+  | AsnLeft
+  | AsnAdd
+  | AsnSub
+  | AsnMul
+  | AsnDiv
+  | AsnMod
+  | AsnAnd
+  | AsnXor
+  | AsnOr
 [@@deriving show]
 
 type expr =
   | ExLiteral of literal
   | ExId of string
-  | Var of string
-  | UnaryOp of unary_op * expr
-  | BinaryOp of binary_op * expr * expr
-  | Cast of c_type * expr
-  | Index of expr * expr
-  | Member of expr * string
-  | Call of string * expr list
-  | Sizeof of c_type
+  | ExUOpPre of unary_op * expr
+  | ExUOpPost of unary_op * expr
+  | ExBOp of binary_op * expr * expr
+  | ExAOp of asn_op * expr * expr
+  | ExCast of c_type * expr
+  | ExSizeof of c_type
+  | ExTernary of expr * expr * expr
+  | ExArrIdx of expr * expr
+  | ExAccess of expr * string
+  | ExPAccess of expr * string
+  | ExCall of string * expr list
 [@@deriving show]
 
 type stmt =

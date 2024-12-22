@@ -26,7 +26,6 @@ let _ =
     ("default", KW_DEFAULT);
     ("do", KW_DO);
     ("else", KW_ELSE);
-    ("float", KW_FLOAT);
     ("for", KW_FOR);
     ("if", KW_IF);
     ("return", KW_RETURN);
