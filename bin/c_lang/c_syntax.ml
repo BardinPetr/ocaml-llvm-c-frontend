@@ -75,11 +75,9 @@ type expr =
 
 type stmt =
   | StExpr of expr
-  | StIf of expr * stmt * stmt option
-  | StFor of stmt option * expr option * stmt option * stmt
-  | StWhile of expr * stmt
-  | StDo of stmt * expr
-  | StSwitch of expr * (int * stmt) list * stmt option
+  | StIf of expr * stmt list * stmt list option
+  | StFor of expr option * expr option * expr option * stmt list
+  | StWhile of expr * stmt list
   | StBreak
   | StContinue
   | StReturn of expr option

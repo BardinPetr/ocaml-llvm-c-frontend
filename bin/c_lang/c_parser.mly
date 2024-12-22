@@ -44,6 +44,9 @@
 %start prog
 %type <C_syntax.stmt list> prog
 
+// %start block
+// %type <C_syntax.stmt list> block
+
 %%
 
 (* operators *)
@@ -92,7 +95,7 @@
 
 (* expressions *)
 
-%inline ex_type:
+ex_type:
   | TYP_CHAR {TChar}
   | TYP_SHORT {TShort}
   | TYP_INT {TInt}
@@ -100,8 +103,9 @@
   | TYP_FLOAT {TFloat}
   | TYP_DOUBLE {TDouble}
   | TYP_VOID {TVoid}
-  | v = IDENTIFIER {TOther v}
-  | KW_STRUCT; v = IDENTIFIER {TStruct v} 
+  | v = IDENTIFIER { TOther v }
+  | KW_STRUCT; v = IDENTIFIER { TStruct v } 
+  | t=ex_type; OP_STAR { TPtr t }
 
 literal:
   | LIT_INT { IntLit $1 }
@@ -141,15 +145,46 @@ expression:
   | ex_binary {$1}
   | ex_conditional {$1}
 
+ex_opt: e = ioption(expression) { e }
+
+(* blocks (stmt list) *)
+
+block_cont: l = list(statement) { l }
+
+block: BRC_L; b=block_cont; BRC_R { b } 
+
+block_or_line:
+  | b=block { b }
+  | s=statement { [ s ] }
+
+(* statements *)
+
+st_if_hd: KW_IF; PRH_L; chk=expression; PRH_R { chk }
+st_if:
+  | chk=st_if_hd; t=block_or_line { StIf (chk, t, None) }
+  | chk=st_if_hd; t=block_or_line; KW_ELSE; f=block_or_line { StIf (chk, t, Some f) }
+
+st_for: KW_FOR; PRH_L; s1=ex_opt; PU_SEMICOLON; s2=ex_opt; PU_SEMICOLON; s3=ex_opt; PRH_R; b=block_or_line
+  { StFor (s1, s2, s3, b) }
+
+st_while: KW_WHILE; PRH_L; e=expression; PRH_R; f=block_or_line { StWhile (e, f) }
+
+st_cmd: 
+  | KW_BREAK { StBreak }
+  | KW_CONTINUE { StContinue }
+  | KW_RETURN; e = ioption(expression) { StReturn e }
+
+statement:
+  | e = expression; PU_SEMICOLON { StExpr e }
+  | s = st_cmd; PU_SEMICOLON { s }
+  | st_if { $1 }
+  | st_for { $1 }
+  | st_while { $1 }
+
 (* declarations *)
 
-st_expr:
-  | e = expression; PU_SEMICOLON { StExpr e }
-
-func_body: list(st_expr) {$1}
-
 prog:
-  | e = func_body; EOF { e } 
+  | e = block; EOF { e } 
 
 // declaration:
 //   | declaration_specifiers PU_SEMICOLON
@@ -166,17 +201,6 @@ prog:
 // init_declarator:
 //   | declarator
 //   | declarator ASN_BASE initializer
-
-// type_specifier:
-//   | TYP_VOID
-//   | TYP_CHAR
-//   | TYP_SHORT
-//   | TYP_INT
-//   | TYP_LONG
-//   | TYP_FLOAT
-//   | TYP_DOUBLE
-//   | struct_specifier
-//   | TYPE_NAME
 
 // struct_specifier:
 //   | KW_STRUCT IDENTIFIER BRC_L struct_declaration_list BRC_R

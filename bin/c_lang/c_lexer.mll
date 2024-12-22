@@ -23,21 +23,21 @@ let _ =
     ("break", KW_BREAK);
     ("case", KW_CASE);
     ("continue", KW_CONTINUE);
-    ("default", KW_DEFAULT);
-    ("do", KW_DO);
     ("else", KW_ELSE);
     ("for", KW_FOR);
     ("if", KW_IF);
     ("return", KW_RETURN);
-    ("switch", KW_SWITCH);
     ("while", KW_WHILE); 
     ("sizeof", KW_SIZEOF);
 
     (* NOT IMPLEMENTED *)
-    (* ("const", CONST); ??? *)
-    (* ("extern", KW_EXTERN); ??? *)
-    (* ("static", KW_STATIC); ??? *)
-    (* ("enum", KW_ENUM); ???*) 
+    (* ("switch", KW_SWITCH); *)
+    (* ("default", KW_DEFAULT); *)
+    (* ("do", KW_DO); *)
+    (* ("const", CONST); *)
+    (* ("extern", KW_EXTERN); *)
+    (* ("static", KW_STATIC); *)
+    (* ("enum", KW_ENUM); *) 
     (* ("volatile", KW_VOLATILE); *)
     (* ("union", KW_UNION); *)
     (* ("typedef", KW_TYPEDEF); *)

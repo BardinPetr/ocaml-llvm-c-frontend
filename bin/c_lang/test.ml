@@ -39,6 +39,7 @@ let%expect_test "comment" =
 let%expect_test "expression" =
   parse_default
     {| 
+  {
   1;
   (2);
   asd;
@@ -47,11 +48,14 @@ let%expect_test "expression" =
   &*(*a);
   sizeof(int);
   sizeof(struct asd);
+  sizeof(int**);
   asb < ++asd ? 123 : ++bca;
   func1();
   func2(1, 'a', "222", ++asd, asd--, &(p++[324]));
+  }
   |};
-  [%expect {|
+  [%expect
+    {|
     (C_syntax.StExpr (C_syntax.ExLiteral (C_syntax.IntLit 1)));
     (C_syntax.StExpr (C_syntax.ExLiteral (C_syntax.IntLit 2)));
     (C_syntax.StExpr (C_syntax.ExId "asd"));
@@ -64,6 +68,8 @@ let%expect_test "expression" =
           )));
     (C_syntax.StExpr (C_syntax.ExSizeof C_syntax.TInt));
     (C_syntax.StExpr (C_syntax.ExSizeof (C_syntax.TStruct "asd")));
+    (C_syntax.StExpr
+       (C_syntax.ExSizeof (C_syntax.TPtr (C_syntax.TPtr C_syntax.TInt))));
     (C_syntax.StExpr
        (C_syntax.ExTernary (
           (C_syntax.ExBOp (C_syntax.OpCmpLt, (C_syntax.ExId "asb"),
@@ -90,11 +96,14 @@ let%expect_test "expression" =
 let%expect_test "binary_expr" =
   parse_default
     {| 
+    {
     1 * 2 + 3 / 4 - 4 % 2 + 2 ;
     test += (a + 3)->f_name;
     a = func(1 * 1 - 13 + asd.dsa * 4 + 1 / 8);
+    }
   |};
-  [%expect {|
+  [%expect
+    {|
     (C_syntax.StExpr
        (C_syntax.ExBOp (C_syntax.OpMul, (C_syntax.ExLiteral (C_syntax.IntLit 1)),
           (C_syntax.ExBOp (C_syntax.OpAdd,
@@ -144,4 +153,128 @@ let%expect_test "binary_expr" =
                ]
              ))
           )))
+    |}]
+
+let%expect_test "if" =
+  parse_default
+    {| 
+  {
+    if(abc > dfe) 
+      f(1);
+
+    if(abc > dfe) 
+      f(1);
+    else
+      f(2);
+
+    if(abc > dfe) {
+      f(11);
+      f(12);
+      f(13);
+    } else {
+      f(21);
+      f(22);
+      f(23);
+    }
+  }
+|};
+  [%expect
+    {|
+    (C_syntax.StIf (
+       (C_syntax.ExBOp (C_syntax.OpCmpGt, (C_syntax.ExId "abc"),
+          (C_syntax.ExId "dfe"))),
+       [(C_syntax.StExpr
+           (C_syntax.ExCall ("f", [(C_syntax.ExLiteral (C_syntax.IntLit 1))])))
+         ],
+       None));
+    (C_syntax.StIf (
+       (C_syntax.ExBOp (C_syntax.OpCmpGt, (C_syntax.ExId "abc"),
+          (C_syntax.ExId "dfe"))),
+       [(C_syntax.StExpr
+           (C_syntax.ExCall ("f", [(C_syntax.ExLiteral (C_syntax.IntLit 1))])))
+         ],
+       (Some [(C_syntax.StExpr
+                 (C_syntax.ExCall ("f",
+                    [(C_syntax.ExLiteral (C_syntax.IntLit 2))])))
+               ])
+       ));
+    (C_syntax.StIf (
+       (C_syntax.ExBOp (C_syntax.OpCmpGt, (C_syntax.ExId "abc"),
+          (C_syntax.ExId "dfe"))),
+       [(C_syntax.StExpr
+           (C_syntax.ExCall ("f", [(C_syntax.ExLiteral (C_syntax.IntLit 11))])));
+         (C_syntax.StExpr
+            (C_syntax.ExCall ("f", [(C_syntax.ExLiteral (C_syntax.IntLit 12))])));
+         (C_syntax.StExpr
+            (C_syntax.ExCall ("f", [(C_syntax.ExLiteral (C_syntax.IntLit 13))])))
+         ],
+       (Some [(C_syntax.StExpr
+                 (C_syntax.ExCall ("f",
+                    [(C_syntax.ExLiteral (C_syntax.IntLit 21))])));
+               (C_syntax.StExpr
+                  (C_syntax.ExCall ("f",
+                     [(C_syntax.ExLiteral (C_syntax.IntLit 22))])));
+               (C_syntax.StExpr
+                  (C_syntax.ExCall ("f",
+                     [(C_syntax.ExLiteral (C_syntax.IntLit 23))])))
+               ])
+       ))
+    |}]
+
+let%expect_test "loops" =
+  parse_default
+    {| 
+  {
+      for(i = 0; i < 10; i++)
+        i += 1;
+      
+      for(; ; i++) {
+        i--;
+        i++;
+        continue;
+      }
+
+      for(;;) f();
+
+      while(a++) {
+        b += 1;
+        break;
+      }
+
+      return 1;
+      return;
+  }
+|};
+  [%expect
+    {|
+    (C_syntax.StFor (
+       (Some (C_syntax.ExAOp (C_syntax.AsnBase, (C_syntax.ExId "i"),
+                (C_syntax.ExLiteral (C_syntax.IntLit 0))))),
+       (Some (C_syntax.ExBOp (C_syntax.OpCmpLt, (C_syntax.ExId "i"),
+                (C_syntax.ExLiteral (C_syntax.IntLit 10))))),
+       (Some (C_syntax.ExUOpPost (C_syntax.UOInc, (C_syntax.ExId "i")))),
+       [(C_syntax.StExpr
+           (C_syntax.ExAOp (C_syntax.AsnAdd, (C_syntax.ExId "i"),
+              (C_syntax.ExLiteral (C_syntax.IntLit 1)))))
+         ]
+       ));
+    (C_syntax.StFor (None, None,
+       (Some (C_syntax.ExUOpPost (C_syntax.UOInc, (C_syntax.ExId "i")))),
+       [(C_syntax.StExpr
+           (C_syntax.ExUOpPost (C_syntax.UODec, (C_syntax.ExId "i"))));
+         (C_syntax.StExpr
+            (C_syntax.ExUOpPost (C_syntax.UOInc, (C_syntax.ExId "i"))));
+         C_syntax.StContinue]
+       ));
+    (C_syntax.StFor (None, None, None,
+       [(C_syntax.StExpr (C_syntax.ExCall ("f", [])))]));
+    (C_syntax.StWhile (
+       (C_syntax.ExUOpPost (C_syntax.UOInc, (C_syntax.ExId "a"))),
+       [(C_syntax.StExpr
+           (C_syntax.ExAOp (C_syntax.AsnAdd, (C_syntax.ExId "b"),
+              (C_syntax.ExLiteral (C_syntax.IntLit 1)))));
+         C_syntax.StBreak]
+       ));
+    (C_syntax.StReturn (Some (C_syntax.ExLiteral (C_syntax.IntLit 1))));
+    (C_syntax.StReturn None)
     |}]
