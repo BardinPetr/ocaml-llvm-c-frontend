@@ -73,11 +73,7 @@ type expr =
   | ExCall of string * expr list
 [@@deriving show]
 
-type decl =
-  | DeclVar of c_type * string * expr option
-  | FuncProto of c_type * string * (c_type * string) list
-  | StructDecl of string * (c_type * string) list
-[@@deriving show]
+type var_decl = DeclVar of c_type * string * expr option [@@deriving show]
 
 type stmt =
   | StExpr of expr
@@ -87,14 +83,16 @@ type stmt =
   | StBreak
   | StContinue
   | StReturn of expr option
-  | StDecl of decl
+  | StDecl of var_decl
 [@@deriving show]
 
-type func_decl =
-  | FuncDecl of c_type * string * (c_type * string) list * stmt list
+type global_decl =
+  | FuncGDecl of c_type * string * (c_type * string) list * stmt list option
+  | VarGDecl of var_decl
+  | StructDecl of string * (c_type * string) list
 [@@deriving show]
 
-type program = Prog of decl list * func_decl list [@@deriving show]
+type program = Prog of global_decl list [@@deriving show]
 
 let rec wrap_ctype_array (dims : int list) (typ : c_type) : c_type =
   match dims with

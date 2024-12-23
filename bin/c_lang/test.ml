@@ -1,12 +1,19 @@
 open Printf
 
-let parse_default x =
-  x
-  |> Main.parse
-  |> List.map C_syntax.show_stmt
-  |> String.concat ";\n"
-  |> printf "%s\n"
+let parse_block str =
+  let lexbuf = Lexing.from_string str in
+  let res =
+    try C_parser.block C_lexer.read lexbuf with
+    | C_lexer.SyntaxError msg ->
+        fprintf stderr "%a: %s\n" Main.print_position lexbuf msg;
+        exit (-1)
+    | C_parser.Error ->
+        fprintf stderr "%a: syntax error\n" Main.print_position lexbuf;
+        exit (-1)
+  in
+  printf "%s\n" (res |> List.map C_syntax.show_stmt |> String.concat ";\n")
 
+let parse_default x = x |> Main.parse |> C_syntax.show_program |> printf "%s\n"
 let lex_default x = x |> Main.lex |> Main.print_tokens
 
 (* lexer tests *)
@@ -37,7 +44,7 @@ let%expect_test "comment" =
 (* parser tests *)
 
 let%expect_test "expression" =
-  parse_default
+  parse_block
     {| 
   {
   1;
@@ -94,7 +101,7 @@ let%expect_test "expression" =
     |}]
 
 let%expect_test "binary_expr" =
-  parse_default
+  parse_block
     {| 
     {
     1 * 2 + 3 / 4 - 4 % 2 + 2 ;
@@ -156,7 +163,7 @@ let%expect_test "binary_expr" =
     |}]
 
 let%expect_test "if" =
-  parse_default
+  parse_block
     {| 
   {
     if(abc > dfe) 
@@ -222,7 +229,7 @@ let%expect_test "if" =
     |}]
 
 let%expect_test "loops" =
-  parse_default
+  parse_block
     {| 
   {
       for(i = 0; i < 10; i++)
@@ -279,12 +286,8 @@ let%expect_test "loops" =
     (C_syntax.StReturn None)
     |}]
 
-(* let%expect_test "fun_decl" = parse_default {|
-   |}
-*)
-
 let%expect_test "var_decl" =
-  parse_default
+  parse_block
     {| 
     {
     int a;
@@ -294,4 +297,37 @@ let%expect_test "var_decl" =
     int* arr[10][12][14];
     int arr[10] = 0;
     }
-  |}
+  |};
+  [%expect
+    {|
+    (C_syntax.StDecl (C_syntax.DeclVar (C_syntax.TInt, "a", None)));
+    (C_syntax.StDecl
+       (C_syntax.DeclVar ((C_syntax.TPtr (C_syntax.TPtr C_syntax.TInt)), "a",
+          (Some (C_syntax.ExUOpPre (C_syntax.UORef, (C_syntax.ExId "a")))))));
+    (C_syntax.StDecl (C_syntax.DeclVar ((C_syntax.TStruct "st"), "q", None)));
+    (C_syntax.StDecl
+       (C_syntax.DeclVar ((C_syntax.TStruct "st"), "q",
+          (Some (C_syntax.ExLiteral (C_syntax.IntLit 0))))));
+    (C_syntax.StDecl
+       (C_syntax.DeclVar (
+          (C_syntax.TArray (
+             (C_syntax.TArray (
+                (C_syntax.TArray ((C_syntax.TPtr C_syntax.TInt), 14)), 12)),
+             10)),
+          "arr", None)));
+    (C_syntax.StDecl
+       (C_syntax.DeclVar ((C_syntax.TArray (C_syntax.TInt, 10)), "arr",
+          (Some (C_syntax.ExLiteral (C_syntax.IntLit 0))))))
+    |}]
+
+let%expect_test "glob_decl" =
+  parse_default
+    {|
+    int fun(int a, int* b[2], char** arr);
+
+    void fun2(void* ptr) {
+      return 1;
+    }
+    
+    int asd = 31;
+|}

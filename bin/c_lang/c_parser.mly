@@ -42,10 +42,10 @@
 
 
 %start prog
-%type <C_syntax.stmt list> prog
+%type <C_syntax.program> prog
 
-// %start block
-// %type <C_syntax.stmt list> block
+%start block
+%type <C_syntax.stmt list> block
 
 %%
 
@@ -157,19 +157,6 @@ block_or_line:
   | b=block { b }
   | s=statement { [ s ] }
 
-(* declarations *)
-
-decl_var_init: 
-  | ASN_BASE; e=expression { e }
-
-decl_typed_var:
-  | typ=ex_type; name=IDENTIFIER; arr_dims=list(delimited(BRK_L, LIT_INT, BRK_R))
-    { ((wrap_ctype_array (List.rev arr_dims) typ), name) }
-
-decl_var:
-  | v=decl_typed_var; init=option(decl_var_init) 
-    { match v with (typ, name) -> DeclVar (typ, name, init) }
-
 (* statements *)
 
 st_if_hd: KW_IF; PRH_L; chk=expression; PRH_R { chk }
@@ -197,171 +184,29 @@ statement:
 
 (* declarations *)
 
+decl_var_init: 
+  | ASN_BASE; e=expression { e }
+
+decl_typed_var:
+  | typ=ex_type; name=IDENTIFIER; arr_dims=list(delimited(BRK_L, LIT_INT, BRK_R))
+    { ((wrap_ctype_array (List.rev arr_dims) typ), name) }
+
+decl_var:
+  | v=decl_typed_var; init=option(decl_var_init) 
+    { match v with (typ, name) -> DeclVar (typ, name, init) }
+
+decl_fun_sig:
+  | ret=ex_type; name=IDENTIFIER; params=delimited(PRH_L, separated_list(PU_COMMA, decl_typed_var), PRH_R)
+    { (ret, name, params) }
+
+(* global *)
+
+decl_global:
+  | d = decl_fun_sig; PU_SEMICOLON 
+    { match d with (ret, name, params) -> FuncGDecl (ret, name, params, None) }
+  | d = decl_fun_sig; body=block 
+    { match d with (ret, name, params) -> FuncGDecl (ret, name, params, Some body) }
+  | d = decl_var; PU_SEMICOLON { VarGDecl d }
+
 prog:
-  | e = block; EOF { e } 
-
-// declaration:
-//   | declaration_specifiers PU_SEMICOLON
-//   | declaration_specifiers init_declarator_list PU_SEMICOLON
-
-// declaration_specifiers:
-//   | type_specifier
-//   | type_specifier declaration_specifiers
-
-// init_declarator_list:
-//   | init_declarator
-//   | init_declarator_list PU_COMMA init_declarator
-
-// init_declarator:
-//   | declarator
-//   | declarator ASN_BASE initializer
-
-// struct_specifier:
-//   | KW_STRUCT IDENTIFIER BRC_L struct_declaration_list BRC_R
-//   | KW_STRUCT BRC_L struct_declaration_list BRC_R
-//   | KW_STRUCT IDENTIFIER
-
-// struct_declaration_list:
-//   | struct_declaration
-//   | struct_declaration_list struct_declaration
-
-// struct_declaration:
-//   | specifier_qualifier_list struct_declarator_list PU_SEMICOLON
-
-// specifier_qualifier_list:
-//   | type_specifier specifier_qualifier_list
-//   | type_specifier
-
-// struct_declarator_list:
-//   | struct_declarator
-//   | struct_declarator_list PU_COMMA struct_declarator
-
-// struct_declarator:
-//   | declarator
-//   | PU_COLON expression
-//   | declarator PU_COLON expression
-
-// declarator:
-//   | pointer direct_declarator
-//   | direct_declarator
-
-// direct_declarator:
-//   | IDENTIFIER
-//   | PRH_L declarator PRH_R
-//   | direct_declarator BRK_L expression BRK_R
-//   | direct_declarator BRK_L BRK_R
-//   | direct_declarator PRH_L parameter_type_list PRH_R
-//   | direct_declarator PRH_L identifier_list PRH_R
-//   | direct_declarator PRH_L PRH_R
-
-// pointer:
-//   | OP_STAR
-//   | OP_STAR pointer
-
-// parameter_type_list:
-//   | parameter_list
-//   | parameter_list PU_COMMA ELLIPSIS
-
-// parameter_list:
-//   | parameter_declaration
-//   | parameter_list PU_COMMA parameter_declaration
-
-// parameter_declaration:
-//   | declaration_specifiers declarator
-//   | declaration_specifiers abstract_declarator
-//   | declaration_specifiers
-
-// identifier_list:
-//   | IDENTIFIER
-//   | identifier_list PU_COMMA IDENTIFIER
-
-// type_name:
-//   | specifier_qualifier_list
-//   | specifier_qualifier_list abstract_declarator
-
-// abstract_declarator:
-//   | pointer
-//   | direct_abstract_declarator
-//   | pointer direct_abstract_declarator
-
-// direct_abstract_declarator:
-//   | PRH_L abstract_declarator PRH_R
-//   | BRK_L BRK_R
-//   | BRK_L expression BRK_R
-//   | direct_abstract_declarator BRK_L BRK_R
-//   | direct_abstract_declarator BRK_L expression BRK_R
-//   | PRH_L PRH_R
-//   | PRH_L parameter_type_list PRH_R
-//   | direct_abstract_declarator PRH_L PRH_R
-//   | direct_abstract_declarator PRH_L parameter_type_list PRH_R
-
-// initializer:
-//   | ex_assignment
-//   | BRC_L initializer_list BRC_R
-//   | BRC_L initializer_list PU_COMMA BRC_R
-
-// initializer_list:
-//   | initializer
-//   | initializer_list PU_COMMA initializer
-
-// statement:
-//   | st_labeled
-//   | st_compound
-//   | st_expression
-//   | st_selection
-//   | st_iteration
-//   | st_jump
-
-// st_labeled:
-//   | CASE expression PU_COLON statement
-//   | DEFAULT PU_COLON statement
-
-// st_compound:
-//   | BRC_L BRC_R
-//   | BRC_L statement_list BRC_R
-//   | BRC_L declaration_list BRC_R
-//   | BRC_L declaration_list statement_list BRC_R
-
-// declaration_list:
-//   | declaration
-//   | declaration_list declaration
-
-// statement_list:
-//   | statement
-//   | statement_list statement
-
-// st_expression:
-//   | PU_SEMICOLON
-//   | expression PU_SEMICOLON
-
-// st_selection:
-//   | IF PRH_L expression PRH_R statement
-//   | IF PRH_L expression PRH_R statement ELSE statement
-//   | SWITCH PRH_L expression PRH_R statement
-
-// st_iteration:
-//   | WHILE PRH_L expression PRH_R statement
-//   | DO statement WHILE PRH_L expression PRH_R PU_SEMICOLON
-//   | FOR PRH_L st_expression st_expression PRH_R statement
-//   | FOR PRH_L st_expression st_expression expression PRH_R statement
-
-// st_jump:
-//   | CONTINUE PU_SEMICOLON
-//   | BREAK PU_SEMICOLON
-//   | RETURN PU_SEMICOLON
-//   | RETURN expression PU_SEMICOLON
-
-// translation_unit:
-//   | external_declaration
-//   | translation_unit external_declaration
-
-// external_declaration:
-//   | function_definition
-//   | declaration
-
-// function_definition:
-//   | declaration_specifiers declarator declaration_list st_compound
-//   | declaration_specifiers declarator st_compound
-//   | declarator declaration_list st_compound
-//   | declarator st_compound
-
+  | e = list(decl_global); EOF { Prog e } 
