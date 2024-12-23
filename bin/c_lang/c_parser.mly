@@ -10,9 +10,9 @@
 %token <string> LIT_STRING
 
 %token BRC_L BRC_R BRK_L BRK_R PRH_L PRH_R
-%token PU_SEMICOLON PU_COLON PU_QUEST PU_COMMA
+%token PU_SEMICOLON PU_COLON PU_QUEST PU_COMMA PU_ELLIPSIS
 
-%token OP_RIGHT OP_LEFT OP_PLUS OP_MINUS OP_STAR OP_DIV OP_MOD OP_AMPERSAND OP_XOR OP_OR OP_LAND OP_LOR OP_ARROW OP_DOT OP_QUEST
+%token OP_RIGHT OP_LEFT OP_PLUS OP_MINUS OP_STAR OP_DIV OP_MOD OP_AMPERSAND OP_XOR OP_OR OP_LAND OP_LOR OP_ARROW OP_DOT
 %token UOP_NEG UOP_INV UOP_INC UOP_DEC
 %token ASN_BASE ASN_RIGHT ASN_LEFT ASN_ADD ASN_SUB ASN_MUL ASN_DIV ASN_MOD ASN_AND ASN_XOR ASN_OR
 %token CMP_LE CMP_LT CMP_GE CMP_GT CMP_EQ CMP_NE
@@ -20,7 +20,7 @@
 %token TYP_CHAR TYP_SHORT TYP_INT TYP_LONG TYP_FLOAT TYP_DOUBLE TYP_VOID
 
 %token KW_STRUCT KW_SIZEOF
-%token KW_BREAK KW_CASE KW_CONTINUE KW_DEFAULT KW_DO KW_ELSE KW_FOR KW_IF KW_RETURN KW_SWITCH KW_WHILE
+%token KW_BREAK KW_CONTINUE KW_ELSE KW_FOR KW_IF KW_RETURN KW_WHILE
 
 %token EOF
 
@@ -45,7 +45,7 @@
 %type <C_syntax.program> prog
 
 %start block
-%type <C_syntax.stmt list> block
+%type <C_syntax.stmt> block
 
 %%
 
@@ -103,7 +103,6 @@ ex_type:
   | TYP_FLOAT {TFloat}
   | TYP_DOUBLE {TDouble}
   | TYP_VOID {TVoid}
-  | v = IDENTIFIER { TOther v }
   | KW_STRUCT; v = IDENTIFIER { TStruct v } 
   | t=ex_type; OP_STAR { TPtr t }
 
@@ -149,13 +148,11 @@ ex_opt: e = ioption(expression) { e }
 
 (* blocks (stmt list) *)
 
-block_cont: l = list(statement) { l }
-
-block: BRC_L; b=block_cont; BRC_R { b } 
+block: BRC_L; b=list(statement); BRC_R { StBlock b } 
 
 block_or_line:
   | b=block { b }
-  | s=statement { [ s ] }
+  | s=statement { StBlock [s] }
 
 (* statements *)
 
@@ -190,6 +187,8 @@ decl_var_init:
 decl_typed_var:
   | typ=ex_type; name=IDENTIFIER; arr_dims=list(delimited(BRK_L, LIT_INT, BRK_R))
     { ((wrap_ctype_array (List.rev arr_dims) typ), name) }
+  | PU_ELLIPSIS
+    { (TEllipsis, "") }
 
 decl_var:
   | v=decl_typed_var; init=option(decl_var_init) 

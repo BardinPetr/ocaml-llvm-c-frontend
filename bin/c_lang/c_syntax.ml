@@ -9,7 +9,7 @@ type c_type =
   | TPtr of c_type
   | TArray of c_type * int
   | TStruct of string
-  | TOther of string
+  | TEllipsis
 [@@deriving show]
 
 type literal =
@@ -77,17 +77,18 @@ type var_decl = DeclVar of c_type * string * expr option [@@deriving show]
 
 type stmt =
   | StExpr of expr
-  | StIf of expr * stmt list * stmt list option
-  | StFor of expr option * expr option * expr option * stmt list
-  | StWhile of expr * stmt list
+  | StIf of expr * stmt * stmt option
+  | StFor of expr option * expr option * expr option * stmt
+  | StWhile of expr * stmt
   | StBreak
   | StContinue
   | StReturn of expr option
   | StDecl of var_decl
+  | StBlock of stmt list
 [@@deriving show]
 
 type global_decl =
-  | FuncGDecl of c_type * string * (c_type * string) list * stmt list option
+  | FuncGDecl of c_type * string * (c_type * string) list * stmt option
   | VarGDecl of var_decl
   | StructGDecl of string * (c_type * string) list
 [@@deriving show]

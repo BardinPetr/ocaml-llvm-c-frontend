@@ -21,7 +21,6 @@ let _ =
 
     (* control *)
     ("break", KW_BREAK);
-    ("case", KW_CASE);
     ("continue", KW_CONTINUE);
     ("else", KW_ELSE);
     ("for", KW_FOR);
@@ -31,6 +30,7 @@ let _ =
     ("sizeof", KW_SIZEOF);
 
     (* NOT IMPLEMENTED *)
+    (* ("case", KW_CASE); *)
     (* ("switch", KW_SWITCH); *)
     (* ("default", KW_DEFAULT); *)
     (* ("do", KW_DO); *)
@@ -129,6 +129,7 @@ rule read =
   | ":" { PU_COLON }
   | ";" { PU_SEMICOLON }
   | "," { PU_COMMA }
+  | "..." { PU_ELLIPSIS }
 
   (* final *)
   | eof { EOF }
