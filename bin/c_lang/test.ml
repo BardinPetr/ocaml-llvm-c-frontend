@@ -330,4 +330,53 @@ let%expect_test "glob_decl" =
     }
     
     int asd = 31;
-|}
+
+    struct abc {
+      int a;
+      void* p;
+      long r[10];
+    };
+
+    int main(int argc, char** argv) {
+      printf("test %d %s\n", argc, argv[0]);
+      return 0;
+    }
+|};
+  [%expect
+    {|
+    (C_syntax.Prog
+       [(C_syntax.FuncGDecl (C_syntax.TInt, "fun",
+           [(C_syntax.TInt, "a");
+             ((C_syntax.TArray ((C_syntax.TPtr C_syntax.TInt), 2)), "b");
+             ((C_syntax.TPtr (C_syntax.TPtr C_syntax.TChar)), "arr")],
+           None));
+         (C_syntax.FuncGDecl (C_syntax.TVoid, "fun2",
+            [((C_syntax.TPtr C_syntax.TVoid), "ptr")],
+            (Some [(C_syntax.StReturn
+                      (Some (C_syntax.ExLiteral (C_syntax.IntLit 1))))
+                    ])
+            ));
+         (C_syntax.VarGDecl
+            (C_syntax.DeclVar (C_syntax.TInt, "asd",
+               (Some (C_syntax.ExLiteral (C_syntax.IntLit 31))))));
+         (C_syntax.StructGDecl ("abc",
+            [(C_syntax.TInt, "a"); ((C_syntax.TPtr C_syntax.TVoid), "p");
+              ((C_syntax.TArray (C_syntax.TLong, 10)), "r")]
+            ));
+         (C_syntax.FuncGDecl (C_syntax.TInt, "main",
+            [(C_syntax.TInt, "argc");
+              ((C_syntax.TPtr (C_syntax.TPtr C_syntax.TChar)), "argv")],
+            (Some [(C_syntax.StExpr
+                      (C_syntax.ExCall ("printf",
+                         [(C_syntax.ExLiteral (C_syntax.StringLit "test %d %s\n"));
+                           (C_syntax.ExId "argc");
+                           (C_syntax.ExArrIdx ((C_syntax.ExId "argv"),
+                              (C_syntax.ExLiteral (C_syntax.IntLit 0))))
+                           ]
+                         )));
+                    (C_syntax.StReturn
+                       (Some (C_syntax.ExLiteral (C_syntax.IntLit 0))))
+                    ])
+            ))
+         ])
+    |}]

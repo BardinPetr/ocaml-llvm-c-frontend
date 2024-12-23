@@ -199,6 +199,10 @@ decl_fun_sig:
   | ret=ex_type; name=IDENTIFIER; params=delimited(PRH_L, separated_list(PU_COMMA, decl_typed_var), PRH_R)
     { (ret, name, params) }
 
+decl_struct:
+  | KW_STRUCT; name=IDENTIFIER; fields=delimited(BRC_L, list(terminated(decl_typed_var, PU_SEMICOLON)), BRC_R)
+    { (name, fields) }
+
 (* global *)
 
 decl_global:
@@ -207,6 +211,8 @@ decl_global:
   | d = decl_fun_sig; body=block 
     { match d with (ret, name, params) -> FuncGDecl (ret, name, params, Some body) }
   | d = decl_var; PU_SEMICOLON { VarGDecl d }
+  | d = decl_struct; PU_SEMICOLON
+    { match d with (name, fields) -> StructGDecl (name, fields) }
 
 prog:
   | e = list(decl_global); EOF { Prog e } 

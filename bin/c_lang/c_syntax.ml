@@ -89,7 +89,7 @@ type stmt =
 type global_decl =
   | FuncGDecl of c_type * string * (c_type * string) list * stmt list option
   | VarGDecl of var_decl
-  | StructDecl of string * (c_type * string) list
+  | StructGDecl of string * (c_type * string) list
 [@@deriving show]
 
 type program = Prog of global_decl list [@@deriving show]
