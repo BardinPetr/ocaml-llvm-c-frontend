@@ -32,3 +32,10 @@ let lex s =
     with _ -> List.rev l
   in
   helper []
+
+let translate f_in f_out =
+  f_in
+  |> Core.(In_channel.read_all)
+  |> parse
+  |> C_fe.translate
+  |> Llvm.print_module f_out

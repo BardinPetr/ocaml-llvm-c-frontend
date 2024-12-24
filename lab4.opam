@@ -24,6 +24,7 @@ depends: [
   "llvm"
   "ctypes"
   "ctypes-foreign"
+  "core"
   "odoc" {with-doc}
 ]
 build: [

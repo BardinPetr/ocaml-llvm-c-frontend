@@ -7,6 +7,7 @@
  (name c_lang)
  (libraries
   base
+  core
   stdio
   llvm
   llvm.analysis
@@ -20,6 +21,6 @@
    ppx_inline_test
    ppx_assert
    ppx_expect))
- (modules main c_syntax c_parser c_lexer c_repr c_fe test_parse test_fe)
+ (modules main c_syntax c_parser c_lexer c_fe test_parse test_fe)
  (flags
   (:standard -warn-error -A)))

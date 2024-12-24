@@ -44,3 +44,6 @@ _opam/
 .ionide
 
 *.xml
+
+demo.*
+demo

@@ -1,4 +1,4 @@
 (executable
- (public_name main)
- (name main)
- (libraries c_lang))
+ (public_name app)
+ (name app)
+ (libraries c_lang cmdliner))

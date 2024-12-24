@@ -10,3 +10,7 @@ RUN sudo ./llvm.sh 17
 
 RUN sudo apt install -y clang-17
 
+RUN opam init -a
+RUN eval $(opam env)
+RUN opam switch create ocaml-base-compiler
+RUN opam install dune

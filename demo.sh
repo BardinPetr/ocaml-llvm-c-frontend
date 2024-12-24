@@ -1,7 +1,7 @@
 #!/bin/bash
 
-rm q q.s
-clang -S -emit-llvm q.c
-llc q.ll
-clang -o q q.s
-./q
+rm demo demo.o demo.s
+# clang -S -emit-llvm q.c
+llc-17 demo.ll
+clang-17 -o demo demo.s
+./demo
