@@ -159,7 +159,8 @@ let%expect_test "printf" =
       return 0;
     }
   |};
-  [%expect {|
+  [%expect
+    {|
     ----IR----
     ; ModuleID = 'main'
     source_filename = "main"
