@@ -18,8 +18,12 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GHCR_GITHUB_TOKEN }}
     steps:
-      - name: Checkout tree
-        uses: actions/checkout@v4
-      - run: opam install . --deps-only --with-test
-      - run: opam exec -- dune build
-      - run: opam exec -- dune runtest
+      - name: checkout
+        run: git clone https://github.com/BardinPetr/ocaml-llvm-c-frontend /root/app
+        working-directory: /root
+      - name: prepare
+        working-directory: /root/app
+        run: chmod +x ci.sh
+      - name: run
+        working-directory: /root/app
+        run: ./ci.sh
