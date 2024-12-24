@@ -129,14 +129,6 @@ let rec tr_expression ctx = function
       in
       build_call ftyp f pars retname llb
   | _ -> uie ()
-(*   
-  | ExCast c_type, expr -> 
-  | ExSizeof c_type -> 
-  | ExTernary expr, expr, expr -> 
-  | ExArrIdx expr, expr -> 
-  | ExAccess expr, string -> 
-  | ExPAccess expr, string -> 
-  *)
 
 let rec tr_statement ctx = function
   | StExpr expr ->
@@ -189,13 +181,33 @@ let rec tr_statement ctx = function
       build_br blk_merge llb |> ignore;
       position_at_end blk_merge llb;
       ctx
+  | StFor (init, check, post, body) ->
+      let blk_start = insertion_block llb in
+
+      let blk_check = append_block llc "forcheck" ctx.func in
+      let blk_body = append_block llc "forbody" ctx.func in
+      let blk_merge = append_block llc "formerge" ctx.func in
+
+      position_at_end blk_start llb;
+      tr_statement ctx (StExpr (Option.get init)) |> ignore;
+      build_br blk_check llb |> ignore;
+
+      position_at_end blk_check llb;
+      let c_check = tr_expression ctx (Option.get check) in
+      let c_check =
+        build_sext_or_bitcast c_check (i32_type llc) "forvalcast" llb
+      in
+      let cond = build_icmp Icmp.Ne c_check (i32 0) "chkcond" llb in
+      build_cond_br cond blk_body blk_merge llb |> ignore;
+
+      position_at_end blk_body llb;
+      let ctx = tr_statement ctx body in
+      tr_statement ctx (StExpr (Option.get post)) |> ignore;
+      build_br blk_check llb |> ignore;
+
+      position_at_end blk_merge llb;
+      ctx
   | _ -> failwith "not implemented"
-(*
-  | StFor expr option * expr option * expr option * stmt -> 
-  | StWhile expr * stmt -> 
-  | StBreak -> 
-  | StContinue -> 
-  *)
 
 let tr_function_proto typ_ret typ_args =
   let is_va =

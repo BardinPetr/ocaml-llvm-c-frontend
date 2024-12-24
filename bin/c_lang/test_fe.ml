@@ -369,3 +369,190 @@ let%expect_test "if" =
     nested 00! (VALID)
     ----RET -> 0----
     |}]
+
+let%expect_test "recurse" =
+  tr_compile_run
+    {|
+  int printf(char* fmt, ...);
+
+  int fib(int n) {
+    if (n == 0) return 0;
+    if (n == 1) return 1;
+    return fib(n - 1) + fib(n - 2);
+  }
+
+  int main(int argv, char** argc) {
+    int n = 10; 
+    printf("Fib n=%d is %d\n", n, fib(n));
+    n = 11;
+    printf("Fib n=%d is %d\n", n, fib(n));
+    n = 12;
+    printf("Fib n=%d is %d\n", n, fib(n));
+    return 0;
+  }
+|};
+  [%expect
+    {|
+    Terminator found in the middle of a basic block!
+    label %then
+    Terminator found in the middle of a basic block!
+    label %then6
+
+
+    ----IR----
+    ; ModuleID = 'main'
+    source_filename = "main"
+
+    @0 = private unnamed_addr constant [16 x i8] c"Fib n=%d is %d\0A\00", align 1
+    @1 = private unnamed_addr constant [16 x i8] c"Fib n=%d is %d\0A\00", align 1
+    @2 = private unnamed_addr constant [16 x i8] c"Fib n=%d is %d\0A\00", align 1
+
+    declare i32 @printf(ptr %0, ...)
+
+    ; Function Attrs: noinline optnone
+    define i32 @fib(i32 %0) #0 {
+    entry:
+      %n = alloca i32, align 4
+      store i32 %0, ptr %n, align 4
+      %tmp = load i32, ptr %n, align 4
+      %tmp1 = icmp eq i32 %tmp, 0
+      %ifvalcast = sext i1 %tmp1 to i32
+      %ifcond = icmp ne i32 %ifvalcast, 0
+      br i1 %ifcond, label %then, label %else
+
+    then:                                             ; preds = %entry
+      ret i32 0
+      br label %merge
+
+    else:                                             ; preds = %entry
+      br label %merge
+
+    merge:                                            ; preds = %else, %then
+      %tmp2 = load i32, ptr %n, align 4
+      %tmp3 = icmp eq i32 %tmp2, 1
+      %ifvalcast4 = sext i1 %tmp3 to i32
+      %ifcond5 = icmp ne i32 %ifvalcast4, 0
+      br i1 %ifcond5, label %then6, label %else7
+
+    then6:                                            ; preds = %merge
+      ret i32 1
+      br label %merge8
+
+    else7:                                            ; preds = %merge
+      br label %merge8
+
+    merge8:                                           ; preds = %else7, %then6
+      %tmp9 = load i32, ptr %n, align 4
+      %tmp10 = sub i32 %tmp9, 2
+      %fibres = call i32 @fib(i32 %tmp10)
+      %tmp11 = load i32, ptr %n, align 4
+      %tmp12 = sub i32 %tmp11, 1
+      %fibres13 = call i32 @fib(i32 %tmp12)
+      %tmp14 = add i32 %fibres13, %fibres
+      ret i32 %tmp14
+    }
+
+    ; Function Attrs: noinline optnone
+    define i32 @main(i32 %0, ptr %1) #0 {
+    entry:
+      %argv = alloca i32, align 4
+      store i32 %0, ptr %argv, align 4
+      %argc = alloca ptr, align 8
+      store ptr %1, ptr %argc, align 8
+      %n = alloca i32, align 4
+      store i32 10, ptr %n, align 4
+      %tmp = load i32, ptr %n, align 4
+      %tmp1 = load i32, ptr %n, align 4
+      %fibres = call i32 @fib(i32 %tmp1)
+      %printfres = call i32 (ptr, ...) @printf(ptr @0, i32 %tmp, i32 %fibres)
+      store i32 11, ptr %n, align 4
+      %tmp2 = load i32, ptr %n, align 4
+      %tmp3 = load i32, ptr %n, align 4
+      %tmp4 = load i32, ptr %n, align 4
+      %fibres5 = call i32 @fib(i32 %tmp4)
+      %printfres6 = call i32 (ptr, ...) @printf(ptr @1, i32 %tmp3, i32 %fibres5)
+      store i32 12, ptr %n, align 4
+      %tmp7 = load i32, ptr %n, align 4
+      %tmp8 = load i32, ptr %n, align 4
+      %tmp9 = load i32, ptr %n, align 4
+      %fibres10 = call i32 @fib(i32 %tmp9)
+      %printfres11 = call i32 (ptr, ...) @printf(ptr @2, i32 %tmp8, i32 %fibres10)
+      ret i32 0
+    }
+
+    attributes #0 = { noinline optnone }
+    ----COMPILE----
+    ----OUTPUT----
+    Fib n=10 is 55
+    Fib n=11 is 89
+    Fib n=12 is 144
+    ----RET -> 0----
+    |}]
+
+let%expect_test "for" =
+  tr_compile_run
+    {|
+  int printf(char* fmt, ...);
+
+  int main(int argv, char** argc) {
+    int i;
+    for(i = 10; i < 50; i += 5) {
+      printf("I=%d\n", i);
+    }  
+    return 0;
+  }
+|};
+  [%expect {|
+    ----IR----
+    ; ModuleID = 'main'
+    source_filename = "main"
+
+    @0 = private unnamed_addr constant [6 x i8] c"I=%d\0A\00", align 1
+
+    declare i32 @printf(ptr %0, ...)
+
+    ; Function Attrs: noinline optnone
+    define i32 @main(i32 %0, ptr %1) #0 {
+    entry:
+      %argv = alloca i32, align 4
+      store i32 %0, ptr %argv, align 4
+      %argc = alloca ptr, align 8
+      store ptr %1, ptr %argc, align 8
+      %i = alloca i32, align 4
+      store i32 10, ptr %i, align 4
+      %tmp = load i32, ptr %i, align 4
+      br label %forcheck
+
+    forcheck:                                         ; preds = %forbody, %entry
+      %tmp1 = load i32, ptr %i, align 4
+      %tmp2 = icmp slt i32 %tmp1, 50
+      %forvalcast = sext i1 %tmp2 to i32
+      %chkcond = icmp ne i32 %forvalcast, 0
+      br i1 %chkcond, label %forbody, label %formerge
+
+    forbody:                                          ; preds = %forcheck
+      %tmp3 = load i32, ptr %i, align 4
+      %printfres = call i32 (ptr, ...) @printf(ptr @0, i32 %tmp3)
+      %tmp4 = load i32, ptr %i, align 4
+      %tmp5 = add i32 %tmp4, 5
+      store i32 %tmp5, ptr %i, align 4
+      %tmp6 = load i32, ptr %i, align 4
+      br label %forcheck
+
+    formerge:                                         ; preds = %forcheck
+      ret i32 0
+    }
+
+    attributes #0 = { noinline optnone }
+    ----COMPILE----
+    ----OUTPUT----
+    I=10
+    I=15
+    I=20
+    I=25
+    I=30
+    I=35
+    I=40
+    I=45
+    ----RET -> 0----
+    |}]
