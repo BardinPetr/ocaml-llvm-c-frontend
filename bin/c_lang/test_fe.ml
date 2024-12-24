@@ -26,7 +26,7 @@ let tr_compile_run text =
   Llvm.print_module file m;
   print_endline "----COMPILE----";
   Sys.command ("llc-17 " ^ file) |> ignore;
-  Sys.command "clang-17 -w tmp.s" |> ignore;
+  Sys.command "clang-17 -w tmp.s > /dev/null 2>&1" |> ignore;
   print_endline "----OUTPUT----";
   Printf.printf "----RET -> %d----\n" (Sys.command "./a.out")
 
@@ -189,12 +189,183 @@ let%expect_test "printf" =
 
     attributes #0 = { noinline optnone }
     ----COMPILE----
-    /usr/bin/ld: /tmp/build_8ad482_dune/tmp-46dca4.o: warning: relocation in read-only section `.text'
-    /usr/bin/ld: warning: creating DT_TEXTREL in a PIE
     ----OUTPUT----
     Hello world! 123123
 
     hehe
 
+    ----RET -> 0----
+    |}]
+
+let%expect_test "if" =
+  tr_compile_run
+    {|  
+    int printf(char* fmt, ...);
+    
+    int main(int argv, char** argc) {
+      int a = 1;
+      int b = 2; 
+      if(a > b) {
+        printf("1 > 2 (INVALID)\n");
+      } else {
+        printf("1 < 2 (VALID)\n");
+      }
+      if(0) {
+        printf("1! (INVALID)\n");
+      } else {
+        printf("0! (VALID)\n");
+      }
+      if(1) {
+        printf("1! (VALID)\n");
+      } else {
+        printf("0! (INVALID)\n");
+      }
+      if(10 > (2 * b)) {
+        if(1) {
+          printf("nested 11! (VALID)\n");
+        } else {
+          printf("nested 10! (INVALID)\n");
+        }
+      }
+      if(10 < (2 * b)) {
+      } else {
+        if(0) {
+          printf("nested 01! (INVALID)\n");
+        } else {
+          printf("nested 00! (VALID)\n");
+        }
+      }
+      return 0;
+    }
+|};
+  [%expect
+    {|
+    ----IR----
+    ; ModuleID = 'main'
+    source_filename = "main"
+
+    @0 = private unnamed_addr constant [17 x i8] c"1 > 2 (INVALID)\0A\00", align 1
+    @1 = private unnamed_addr constant [15 x i8] c"1 < 2 (VALID)\0A\00", align 1
+    @2 = private unnamed_addr constant [14 x i8] c"1! (INVALID)\0A\00", align 1
+    @3 = private unnamed_addr constant [12 x i8] c"0! (VALID)\0A\00", align 1
+    @4 = private unnamed_addr constant [12 x i8] c"1! (VALID)\0A\00", align 1
+    @5 = private unnamed_addr constant [14 x i8] c"0! (INVALID)\0A\00", align 1
+    @6 = private unnamed_addr constant [20 x i8] c"nested 11! (VALID)\0A\00", align 1
+    @7 = private unnamed_addr constant [22 x i8] c"nested 10! (INVALID)\0A\00", align 1
+    @8 = private unnamed_addr constant [22 x i8] c"nested 01! (INVALID)\0A\00", align 1
+    @9 = private unnamed_addr constant [20 x i8] c"nested 00! (VALID)\0A\00", align 1
+
+    declare i32 @printf(ptr %0, ...)
+
+    ; Function Attrs: noinline optnone
+    define i32 @main(i32 %0, ptr %1) #0 {
+    entry:
+      %argv = alloca i32, align 4
+      store i32 %0, ptr %argv, align 4
+      %argc = alloca ptr, align 8
+      store ptr %1, ptr %argc, align 8
+      %a = alloca i32, align 4
+      store i32 1, ptr %a, align 4
+      %b = alloca i32, align 4
+      store i32 2, ptr %b, align 4
+      %tmp = load i32, ptr %b, align 4
+      %tmp1 = load i32, ptr %a, align 4
+      %tmp2 = icmp sgt i32 %tmp1, %tmp
+      %ifvalcast = sext i1 %tmp2 to i32
+      %ifcond = icmp ne i32 %ifvalcast, 0
+      br i1 %ifcond, label %then, label %else
+
+    then:                                             ; preds = %entry
+      %printfres = call i32 (ptr, ...) @printf(ptr @0)
+      br label %merge
+
+    else:                                             ; preds = %entry
+      %printfres3 = call i32 (ptr, ...) @printf(ptr @1)
+      br label %merge
+
+    merge:                                            ; preds = %else, %then
+      br i1 false, label %then4, label %else6
+
+    then4:                                            ; preds = %merge
+      %printfres5 = call i32 (ptr, ...) @printf(ptr @2)
+      br label %merge8
+
+    else6:                                            ; preds = %merge
+      %printfres7 = call i32 (ptr, ...) @printf(ptr @3)
+      br label %merge8
+
+    merge8:                                           ; preds = %else6, %then4
+      br i1 true, label %then9, label %else11
+
+    then9:                                            ; preds = %merge8
+      %printfres10 = call i32 (ptr, ...) @printf(ptr @4)
+      br label %merge13
+
+    else11:                                           ; preds = %merge8
+      %printfres12 = call i32 (ptr, ...) @printf(ptr @5)
+      br label %merge13
+
+    merge13:                                          ; preds = %else11, %then9
+      %tmp14 = load i32, ptr %b, align 4
+      %tmp15 = mul i32 2, %tmp14
+      %tmp16 = icmp sgt i32 10, %tmp15
+      %ifvalcast17 = sext i1 %tmp16 to i32
+      %ifcond18 = icmp ne i32 %ifvalcast17, 0
+      br i1 %ifcond18, label %then19, label %else25
+
+    then19:                                           ; preds = %merge13
+      br i1 true, label %then20, label %else22
+
+    then20:                                           ; preds = %then19
+      %printfres21 = call i32 (ptr, ...) @printf(ptr @6)
+      br label %merge24
+
+    else22:                                           ; preds = %then19
+      %printfres23 = call i32 (ptr, ...) @printf(ptr @7)
+      br label %merge24
+
+    merge24:                                          ; preds = %else22, %then20
+      br label %merge26
+
+    else25:                                           ; preds = %merge13
+      br label %merge26
+
+    merge26:                                          ; preds = %else25, %merge24
+      %tmp27 = load i32, ptr %b, align 4
+      %tmp28 = mul i32 2, %tmp27
+      %tmp29 = icmp slt i32 10, %tmp28
+      %ifvalcast30 = sext i1 %tmp29 to i32
+      %ifcond31 = icmp ne i32 %ifvalcast30, 0
+      br i1 %ifcond31, label %then32, label %else33
+
+    then32:                                           ; preds = %merge26
+      br label %merge39
+
+    else33:                                           ; preds = %merge26
+      br i1 false, label %then34, label %else36
+
+    then34:                                           ; preds = %else33
+      %printfres35 = call i32 (ptr, ...) @printf(ptr @8)
+      br label %merge38
+
+    else36:                                           ; preds = %else33
+      %printfres37 = call i32 (ptr, ...) @printf(ptr @9)
+      br label %merge38
+
+    merge38:                                          ; preds = %else36, %then34
+      br label %merge39
+
+    merge39:                                          ; preds = %merge38, %then32
+      ret i32 0
+    }
+
+    attributes #0 = { noinline optnone }
+    ----COMPILE----
+    ----OUTPUT----
+    1 < 2 (VALID)
+    0! (VALID)
+    1! (VALID)
+    nested 11! (VALID)
+    nested 00! (VALID)
     ----RET -> 0----
     |}]

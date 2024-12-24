@@ -28,21 +28,6 @@ let _ =
     ("return", KW_RETURN);
     ("while", KW_WHILE); 
     ("sizeof", KW_SIZEOF);
-
-    (* NOT IMPLEMENTED *)
-    (* ("case", KW_CASE); *)
-    (* ("switch", KW_SWITCH); *)
-    (* ("default", KW_DEFAULT); *)
-    (* ("do", KW_DO); *)
-    (* ("const", CONST); *)
-    (* ("extern", KW_EXTERN); *)
-    (* ("static", KW_STATIC); *)
-    (* ("enum", KW_ENUM); *) 
-    (* ("volatile", KW_VOLATILE); *)
-    (* ("union", KW_UNION); *)
-    (* ("typedef", KW_TYPEDEF); *)
-    (* ("signed", KW_SIGNED); *)
-    (* ("unsigned", KW_UNSIGNED); *)
   ]
 
 let id_or_keyword lexbuf =

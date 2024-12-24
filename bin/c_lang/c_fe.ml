@@ -11,13 +11,26 @@ module StrMap = Map.Make (String)
 let uie () = failwith "not implemented"
 
 type llv_map = (lltype * llvalue) StrMap.t
-type tr_context = { llm : llmodule; locals : llv_map; globals : llv_map }
+
+type tr_context = {
+  llm : llmodule;
+  locals : llv_map;
+  globals : llv_map;
+  func : llvalue;
+}
 
 let ctx_update old_ctx nlocals =
-  { locals = nlocals; globals = old_ctx.globals; llm = old_ctx.llm }
+  {
+    locals = nlocals;
+    globals = old_ctx.globals;
+    llm = old_ctx.llm;
+    func = old_ctx.func;
+  }
+
+let i32 i = const_int (i32_type llc) i
 
 let tr_literal = function
-  | IntLit i -> const_int (i32_type llc) i
+  | IntLit i -> i32 i
   | FloatLit f -> const_float (float_type llc) f
   | CharLit c -> const_int (i8_type llc) (Char.code c)
   | StringLit s ->
@@ -142,10 +155,43 @@ let rec tr_statement ctx = function
   | StReturn (Some e) ->
       build_ret (tr_expression ctx e) llb |> ignore;
       ctx
-  | StBlock lst -> List.fold_left tr_statement ctx lst
+  | StBlock lst ->
+      if List.length lst == 0 then
+        ctx
+      else
+        List.fold_left tr_statement ctx lst
+  | StIf (e_input, br_true, br_false) ->
+      let blk_start = insertion_block llb in
+      let br_false = match br_false with Some x -> x | None -> StBlock [] in
+      let e_input = tr_expression ctx e_input in
+      let e_input_cast =
+        build_sext_or_bitcast e_input (i32_type llc) "ifvalcast" llb
+      in
+      let cond = build_icmp Icmp.Ne e_input_cast (i32 0) "ifcond" llb in
+      (*true*)
+      let blk_then = append_block llc "then" ctx.func in
+      position_at_end blk_then llb;
+      let ctx = tr_statement ctx br_true in
+      let blk_then_end = insertion_block llb in
+      (*false*)
+      let blk_else = append_block llc "else" ctx.func in
+      position_at_end blk_else llb;
+      let ctx = tr_statement ctx br_false in
+      let blk_else_end = insertion_block llb in
+      let blk_merge = append_block llc "merge" ctx.func in
+      (*check*)
+      position_at_end blk_start llb;
+      build_cond_br cond blk_then blk_else llb |> ignore;
+      (*join*)
+      position_at_end blk_then_end llb;
+      build_br blk_merge llb |> ignore;
+      position_at_end blk_else_end llb;
+      build_br blk_merge llb |> ignore;
+      position_at_end blk_merge llb;
+      ctx
   | _ -> failwith "not implemented"
+
 (*
-  | StIf expr * stmt * stmt option -> 
   | StFor expr option * expr option * expr option * stmt -> 
   | StWhile expr * stmt -> 
   | StBreak -> 
@@ -199,7 +245,7 @@ let tr_entry llm = function
                   let locals =
                     tr_function_header (Array.to_list (params f)) args
                   in
-                  let fctx = { locals; globals = nglobals; llm } in
+                  let fctx = { locals; globals = nglobals; llm; func = f } in
                   tr_statement fctx x |> ignore
               | _ -> ());
               nglobals
