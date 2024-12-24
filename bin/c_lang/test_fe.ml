@@ -5,13 +5,14 @@ let%expect_test "fun" =
     {|  
       void printf(char* fmt, ...);
 
-      void test() {
-        //return 1 + 'a';
-        return;
+      int test() {
+        int a = 42;
+        int b = a % 10;
+        int c = (b + a * 2);
+        return c / 4;
       }
 
       int main(int argv, char** argc) {
-        //return test();
-        return;
+        return test();
       }
     |}
