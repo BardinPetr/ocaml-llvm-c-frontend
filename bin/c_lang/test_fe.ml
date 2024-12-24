@@ -36,6 +36,10 @@ let%expect_test "calc" =
 
     define i32 @main(i32 %0, ptr %1) {
     entry:
+      %argv = alloca i32, align 4
+      store i32 %0, ptr %argv, align 4
+      %argc = alloca ptr, align 8
+      store ptr %1, ptr %argc, align 8
       %a = alloca i32, align 4
       store i32 42, ptr %a, align 4
       %b = alloca i32, align 4
@@ -73,10 +77,8 @@ let%expect_test "func" =
     {|  
     void printf(char* fmt, ...);
 
-    //int func(int a, int b) {
-      //return a + 2 * b;
-    int func() {
-      return 0;
+    int func(int a, int b) {
+      return a + 2 * b;
     }
 
     int main(int argv, char** argc) {
@@ -85,4 +87,43 @@ let%expect_test "func" =
       int r = func(p1, p2);
       return r;
     }
-  |}
+  |};
+  [%expect {|
+    ; ModuleID = 'main'
+    source_filename = "main"
+
+    declare void @printf(ptr %0, ...)
+
+    define i32 @func(i32 %0, i32 %1) {
+    entry:
+      %a = alloca i32, align 4
+      store i32 %0, ptr %a, align 4
+      %b = alloca i32, align 4
+      store i32 %1, ptr %b, align 4
+      %tmp = load i32, ptr %b, align 4
+      %tmp1 = mul i32 2, %tmp
+      %tmp2 = load i32, ptr %a, align 4
+      %tmp3 = add i32 %tmp2, %tmp1
+      ret i32 %tmp3
+    }
+
+    define i32 @main(i32 %0, ptr %1) {
+    entry:
+      %argv = alloca i32, align 4
+      store i32 %0, ptr %argv, align 4
+      %argc = alloca ptr, align 8
+      store ptr %1, ptr %argc, align 8
+      %p1 = alloca i32, align 4
+      store i32 10, ptr %p1, align 4
+      %p2 = alloca i32, align 4
+      store i32 20, ptr %p2, align 4
+      %r = alloca i32, align 4
+      %tmp = load i32, ptr %p1, align 4
+      %tmp1 = load i32, ptr %p2, align 4
+      %funcres = call i32 @func(i32 %tmp, i32 %tmp1)
+      store i32 %funcres, ptr %r, align 4
+      %tmp2 = load i32, ptr %r, align 4
+      ret i32 %tmp2
+    }
+    Return code: 50
+    |}]

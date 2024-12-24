@@ -154,6 +154,15 @@ let tr_function_proto typ_ret typ_args =
     |> List.map tr_type
     |> Array.of_list)
 
+let tr_function_header lv_params ast_params =
+  List.fold_left2
+    (fun locals (ct, arg_n) arg_lval ->
+      let arg_t = tr_type ct in
+      let receiver_var = build_alloca arg_t arg_n llb in
+      build_store arg_lval receiver_var llb |> ignore;
+      StrMap.add arg_n (arg_t, receiver_var) locals)
+    StrMap.empty ast_params lv_params
+
 let tr_entry llm = function
   | Prog decls ->
       List.fold_left
@@ -173,9 +182,10 @@ let tr_entry llm = function
               (match body with
               | Some x ->
                   position_at_end (entry_block f) llb;
-                  let fctx =
-                    { locals = StrMap.empty; globals = nglobals; llm }
+                  let locals =
+                    tr_function_header (Array.to_list (params f)) args
                   in
+                  let fctx = { locals; globals = nglobals; llm } in
                   tr_statement fctx x |> ignore
               | _ -> ());
               nglobals
