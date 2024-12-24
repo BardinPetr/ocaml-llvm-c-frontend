@@ -1,6 +1,6 @@
 FROM ocaml/opam:ubuntu-22.04-opam
 
-RUN sudo apt install -y wget bubblewrap cmake make gcc unzip autoconf automake
+RUN sudo apt install -y wget bubblewrap cmake make gcc unzip autoconf automake lsb-release software-properties-common gnupg
 RUN sudo apt install -y lsb-release software-properties-common gnupg
 
 RUN wget https://apt.llvm.org/llvm.sh

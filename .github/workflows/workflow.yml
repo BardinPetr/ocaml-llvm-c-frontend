@@ -8,22 +8,40 @@ permissions:
   checks: write
   pull-requests: write
 
+# jobs:
+#   build-and-test:
+#     runs-on: ubuntu-latest
+#     container:
+#       image: ghcr.io/bardinpetr/ocaml-llvm:latest
+#       options: --user root --cpus 1
+#       credentials:
+#         username: ${{ github.actor }}
+#         password: ${{ secrets.GHCR_GITHUB_TOKEN }}
+#     steps:
+      # - name: checkout
+      #   run: git clone https://github.com/BardinPetr/ocaml-llvm-c-frontend /root/app
+      #   working-directory: /root
+      # - name: run
+      #   working-directory: /root/app
+      #   run: ./ci.sh
+
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/bardinpetr/ocaml-llvm:latest
-      options: --user root --cpus 1
-      credentials:
-        username: ${{ github.actor }}
-        password: ${{ secrets.GHCR_GITHUB_TOKEN }}
     steps:
-      - name: checkout
-        run: git clone https://github.com/BardinPetr/ocaml-llvm-c-frontend /root/app
-        working-directory: /root
-      - name: prepare
-        working-directory: /root/app
-        run: chmod +x ci.sh
-      - name: run
-        working-directory: /root/app
-        run: ./ci.sh
+      - name: Checkout tree
+        uses: actions/checkout@v4
+      - name: Set-up OCaml
+        uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: 5
+      - run: sudo apt install -y wget bubblewrap cmake make gcc unzip autoconf automake lsb-release software-properties-common gnupg 
+      - run: wget -O ~/llvm.sh https://apt.llvm.org/llvm.sh
+      - run: chmod +x ~/llvm.sh
+      - run: sudo ~/llvm.sh 17
+      - run: sudo apt install -y clang-17
+      - run: opam install . --deps-only --with-test
+      - run: opam exec -- dune build
+      - name: Run tests
+        run: opam exec -- dune runtest
+
