@@ -3,7 +3,6 @@ open Llvm
 
 let llc = Llvm.global_context ()
 let llb = builder llc
-let llm = create_module llc "main"
 
 module StrMap = Map.Make (String)
 
@@ -25,9 +24,18 @@ let rec tr_type = function
   | TLong -> i64_type llc
   | TFloat -> float_type llc
   | TDouble -> double_type llc
-  | TPtr _ | TStruct _ -> pointer_type llc
+  | TPtr _ -> pointer_type llc
+  | TStruct _ -> uie ()
   | TArray (base, dim) -> vector_type (tr_type base) dim
   | TEllipsis -> failwith "invalid use of ..."
+
+let rec lvalue_of_expression locals = function
+  | ExId n ->
+      let typ, var = StrMap.find n locals in
+      (typ, var)
+  | ExArrIdx _ | ExUOpPre _ | ExAccess _ | ExPAccess _ | ExCast _ ->
+      failwith "not implemented"
+  | _ -> failwith "invalid lvalue"
 
 let rec tr_expression locals = function
   | ExLiteral l -> tr_literal l
@@ -54,19 +62,16 @@ let rec tr_expression locals = function
         | OpCmpNe -> build_icmp Icmp.Ne
       in
       exec (tr_expression locals e1) (tr_expression locals e2) "tmp" llb
-  | ExUOpPre (op, e) ->
+  | ExUOpPre (op, e) -> (
       let tr_e = tr_expression locals e in
-      let exec =
-        match op with
-        | UOMinus -> build_neg tr_e
-        | UOInv -> build_not tr_e
-        | UONeg -> uie ()
-        | UOInc -> uie ()
-        | UODec -> uie ()
-        | UODeref -> uie ()
-        | UORef -> uie ()
-      in
-      exec "tmp" llb
+      match op with
+      | UOMinus -> build_neg tr_e "tmp" llb
+      | UOInv -> build_not tr_e "tmp" llb
+      | UOInc -> tr_expression locals (ExAOp (AsnAdd, e, ExLiteral (IntLit 1)))
+      | UODec -> tr_expression locals (ExAOp (AsnSub, e, ExLiteral (IntLit 1)))
+      | UONeg -> uie ()
+      | UODeref -> uie ()
+      | UORef -> uie ())
   | ExUOpPost (op, e) ->
       let tr_e = tr_expression locals e in
       let exec =
@@ -76,9 +81,21 @@ let rec tr_expression locals = function
   | ExId n ->
       let typ, var = StrMap.find n locals in
       build_load typ var "tmp" llb
+  | ExAOp (op, tgt, src) ->
+      let lv_typ, lv_tgt = lvalue_of_expression locals tgt in
+      let src = tr_expression locals src in
+      let src_value =
+        match op with
+        | AsnBase -> src
+        | AsnAdd -> build_add (tr_expression locals tgt) src "tmp" llb
+        | AsnSub -> build_sub (tr_expression locals tgt) src "tmp" llb
+        | _ -> uie ()
+      in
+      build_store src_value lv_tgt llb |> ignore;
+      build_load lv_typ lv_tgt "tmp" llb
   | _ -> uie ()
 (*   
-  | ExAOp asn_op, expr, expr -> 
+  | ExCall name, expr list ->  
   | ExCast c_type, expr -> 
   | ExSizeof c_type -> 
   | ExTernary expr, expr, expr -> 
@@ -92,10 +109,10 @@ let rec tr_statement locals = function
       tr_expression locals expr |> ignore;
       locals
   | StDecl (DeclVar (typ, name, init)) ->
-      let typ = tr_type (TPtr typ) in
+      let typ = tr_type typ in
       let var = build_alloca typ name llb in
       (match init with
-      | Some e -> build_store var (tr_expression locals e) llb |> ignore
+      | Some e -> build_store (tr_expression locals e) var llb |> ignore
       | _ -> ());
       StrMap.add name (typ, var) locals
   | StReturn None ->
@@ -128,7 +145,7 @@ let tr_function_proto typ_ret typ_args =
     |> List.map tr_type
     |> Array.of_list)
 
-let tr_function = function
+let tr_entry llm = function
   | Prog decls ->
       decls
       |> List.iter (function
@@ -150,7 +167,10 @@ let tr_function = function
            | _ -> ())
 
 let translate (ast : program) =
-  tr_function ast;
+  let llm = create_module llc "main" in
+  tr_entry llm ast;
+
   let v = Llvm_analysis.verify_module llm in
   if Option.is_some v then print_endline (Option.get v);
-  dump_module llm
+
+  llm

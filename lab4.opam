@@ -22,6 +22,8 @@ depends: [
   "cmdliner"
   "menhir"
   "llvm"
+  "ctypes"
+  "ctypes-foreign"
   "odoc" {with-doc}
 ]
 build: [
