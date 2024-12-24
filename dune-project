@@ -17,7 +17,7 @@
  (name lab4)
  (synopsis "ocaml-c-frontend")
  (description "ITMO FP course laboratory work #4")
- (depends ocaml dune (alcotest :with-test) (junit_alcotest :with-test) (qcheck :with-test) (qcheck-alcotest :with-test) (ppx_inline_test :with-test) (ppx_expect :with-test) ppx_jane ppx_deriving ppx_import cmdliner menhir)
+ (depends ocaml dune (alcotest :with-test) (junit_alcotest :with-test) (qcheck :with-test) (qcheck-alcotest :with-test) (ppx_inline_test :with-test) (ppx_expect :with-test) ppx_jane ppx_deriving ppx_import cmdliner menhir llvm)
  (allow_empty))
 
 (using menhir 3.0)

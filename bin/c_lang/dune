@@ -5,9 +5,9 @@
 
 (library
  (name c_lang)
- (libraries base stdio)
+ (libraries base stdio llvm)
  (inline_tests)
  (preprocess
   (staged_pps ppx_import ppx_deriving.show ppx_inline_test ppx_assert ppx_expect))
- (modules main c_syntax c_parser c_lexer test)
+ (modules main c_syntax c_parser c_lexer c_repr c_fe test_parse test_fe)
  (flags (:standard -warn-error -A)))

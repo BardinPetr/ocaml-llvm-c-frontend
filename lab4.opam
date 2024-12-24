@@ -21,6 +21,7 @@ depends: [
   "ppx_import"
   "cmdliner"
   "menhir"
+  "llvm"
   "odoc" {with-doc}
 ]
 build: [

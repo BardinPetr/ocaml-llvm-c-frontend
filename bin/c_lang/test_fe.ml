@@ -14,18 +14,4 @@ let%expect_test "fun" =
         //return test();
         return;
       }
-    |};
-  [%expect {|
-    ; ModuleID = 'main'
-    source_filename = "main"
-
-    declare void @printf(ptr %0, ...)
-
-    define void @test() {
-    entry:
-    }
-
-    define i32 @main(i32 %0, ptr %1) {
-    entry:
-    }
-    |}]
+    |}

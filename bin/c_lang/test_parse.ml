@@ -11,7 +11,10 @@ let parse_block str =
         fprintf stderr "%a: syntax error\n" Main.print_position lexbuf;
         exit (-1)
   in
-  printf "%s\n" (res |> List.map C_syntax.show_stmt |> String.concat ";\n")
+  printf "%s\n"
+    (match res with
+    | StBlock lst -> lst |> List.map C_syntax.show_stmt |> String.concat ";\n"
+    | _ -> "")
 
 let parse_default x = x |> Main.parse |> C_syntax.show_program |> printf "%s\n"
 let lex_default x = x |> Main.lex |> Main.print_tokens
@@ -190,41 +193,49 @@ let%expect_test "if" =
     (C_syntax.StIf (
        (C_syntax.ExBOp (C_syntax.OpCmpGt, (C_syntax.ExId "abc"),
           (C_syntax.ExId "dfe"))),
-       [(C_syntax.StExpr
-           (C_syntax.ExCall ("f", [(C_syntax.ExLiteral (C_syntax.IntLit 1))])))
-         ],
+       (C_syntax.StBlock
+          [(C_syntax.StExpr
+              (C_syntax.ExCall ("f", [(C_syntax.ExLiteral (C_syntax.IntLit 1))])))
+            ]),
        None));
     (C_syntax.StIf (
        (C_syntax.ExBOp (C_syntax.OpCmpGt, (C_syntax.ExId "abc"),
           (C_syntax.ExId "dfe"))),
-       [(C_syntax.StExpr
-           (C_syntax.ExCall ("f", [(C_syntax.ExLiteral (C_syntax.IntLit 1))])))
-         ],
-       (Some [(C_syntax.StExpr
-                 (C_syntax.ExCall ("f",
-                    [(C_syntax.ExLiteral (C_syntax.IntLit 2))])))
-               ])
+       (C_syntax.StBlock
+          [(C_syntax.StExpr
+              (C_syntax.ExCall ("f", [(C_syntax.ExLiteral (C_syntax.IntLit 1))])))
+            ]),
+       (Some (C_syntax.StBlock
+                [(C_syntax.StExpr
+                    (C_syntax.ExCall ("f",
+                       [(C_syntax.ExLiteral (C_syntax.IntLit 2))])))
+                  ]))
        ));
     (C_syntax.StIf (
        (C_syntax.ExBOp (C_syntax.OpCmpGt, (C_syntax.ExId "abc"),
           (C_syntax.ExId "dfe"))),
-       [(C_syntax.StExpr
-           (C_syntax.ExCall ("f", [(C_syntax.ExLiteral (C_syntax.IntLit 11))])));
-         (C_syntax.StExpr
-            (C_syntax.ExCall ("f", [(C_syntax.ExLiteral (C_syntax.IntLit 12))])));
-         (C_syntax.StExpr
-            (C_syntax.ExCall ("f", [(C_syntax.ExLiteral (C_syntax.IntLit 13))])))
-         ],
-       (Some [(C_syntax.StExpr
-                 (C_syntax.ExCall ("f",
-                    [(C_syntax.ExLiteral (C_syntax.IntLit 21))])));
-               (C_syntax.StExpr
-                  (C_syntax.ExCall ("f",
-                     [(C_syntax.ExLiteral (C_syntax.IntLit 22))])));
-               (C_syntax.StExpr
-                  (C_syntax.ExCall ("f",
-                     [(C_syntax.ExLiteral (C_syntax.IntLit 23))])))
-               ])
+       (C_syntax.StBlock
+          [(C_syntax.StExpr
+              (C_syntax.ExCall ("f", [(C_syntax.ExLiteral (C_syntax.IntLit 11))]
+                 )));
+            (C_syntax.StExpr
+               (C_syntax.ExCall ("f", [(C_syntax.ExLiteral (C_syntax.IntLit 12))]
+                  )));
+            (C_syntax.StExpr
+               (C_syntax.ExCall ("f", [(C_syntax.ExLiteral (C_syntax.IntLit 13))]
+                  )))
+            ]),
+       (Some (C_syntax.StBlock
+                [(C_syntax.StExpr
+                    (C_syntax.ExCall ("f",
+                       [(C_syntax.ExLiteral (C_syntax.IntLit 21))])));
+                  (C_syntax.StExpr
+                     (C_syntax.ExCall ("f",
+                        [(C_syntax.ExLiteral (C_syntax.IntLit 22))])));
+                  (C_syntax.StExpr
+                     (C_syntax.ExCall ("f",
+                        [(C_syntax.ExLiteral (C_syntax.IntLit 23))])))
+                  ]))
        ))
     |}]
 
@@ -260,27 +271,30 @@ let%expect_test "loops" =
        (Some (C_syntax.ExBOp (C_syntax.OpCmpLt, (C_syntax.ExId "i"),
                 (C_syntax.ExLiteral (C_syntax.IntLit 10))))),
        (Some (C_syntax.ExUOpPost (C_syntax.UOInc, (C_syntax.ExId "i")))),
-       [(C_syntax.StExpr
-           (C_syntax.ExAOp (C_syntax.AsnAdd, (C_syntax.ExId "i"),
-              (C_syntax.ExLiteral (C_syntax.IntLit 1)))))
-         ]
+       (C_syntax.StBlock
+          [(C_syntax.StExpr
+              (C_syntax.ExAOp (C_syntax.AsnAdd, (C_syntax.ExId "i"),
+                 (C_syntax.ExLiteral (C_syntax.IntLit 1)))))
+            ])
        ));
     (C_syntax.StFor (None, None,
        (Some (C_syntax.ExUOpPost (C_syntax.UOInc, (C_syntax.ExId "i")))),
-       [(C_syntax.StExpr
-           (C_syntax.ExUOpPost (C_syntax.UODec, (C_syntax.ExId "i"))));
-         (C_syntax.StExpr
-            (C_syntax.ExUOpPost (C_syntax.UOInc, (C_syntax.ExId "i"))));
-         C_syntax.StContinue]
+       (C_syntax.StBlock
+          [(C_syntax.StExpr
+              (C_syntax.ExUOpPost (C_syntax.UODec, (C_syntax.ExId "i"))));
+            (C_syntax.StExpr
+               (C_syntax.ExUOpPost (C_syntax.UOInc, (C_syntax.ExId "i"))));
+            C_syntax.StContinue])
        ));
     (C_syntax.StFor (None, None, None,
-       [(C_syntax.StExpr (C_syntax.ExCall ("f", [])))]));
+       (C_syntax.StBlock [(C_syntax.StExpr (C_syntax.ExCall ("f", [])))])));
     (C_syntax.StWhile (
        (C_syntax.ExUOpPost (C_syntax.UOInc, (C_syntax.ExId "a"))),
-       [(C_syntax.StExpr
-           (C_syntax.ExAOp (C_syntax.AsnAdd, (C_syntax.ExId "b"),
-              (C_syntax.ExLiteral (C_syntax.IntLit 1)))));
-         C_syntax.StBreak]
+       (C_syntax.StBlock
+          [(C_syntax.StExpr
+              (C_syntax.ExAOp (C_syntax.AsnAdd, (C_syntax.ExId "b"),
+                 (C_syntax.ExLiteral (C_syntax.IntLit 1)))));
+            C_syntax.StBreak])
        ));
     (C_syntax.StReturn (Some (C_syntax.ExLiteral (C_syntax.IntLit 1))));
     (C_syntax.StReturn None)
@@ -341,6 +355,8 @@ let%expect_test "glob_decl" =
       printf("test %d %s\n", argc, argv[0]);
       return 0;
     }
+      
+    void printf(char* fmt, ...);
 |};
   [%expect
     {|
@@ -352,9 +368,10 @@ let%expect_test "glob_decl" =
            None));
          (C_syntax.FuncGDecl (C_syntax.TVoid, "fun2",
             [((C_syntax.TPtr C_syntax.TVoid), "ptr")],
-            (Some [(C_syntax.StReturn
-                      (Some (C_syntax.ExLiteral (C_syntax.IntLit 1))))
-                    ])
+            (Some (C_syntax.StBlock
+                     [(C_syntax.StReturn
+                         (Some (C_syntax.ExLiteral (C_syntax.IntLit 1))))
+                       ]))
             ));
          (C_syntax.VarGDecl
             (C_syntax.DeclVar (C_syntax.TInt, "asd",
@@ -366,17 +383,22 @@ let%expect_test "glob_decl" =
          (C_syntax.FuncGDecl (C_syntax.TInt, "main",
             [(C_syntax.TInt, "argc");
               ((C_syntax.TPtr (C_syntax.TPtr C_syntax.TChar)), "argv")],
-            (Some [(C_syntax.StExpr
-                      (C_syntax.ExCall ("printf",
-                         [(C_syntax.ExLiteral (C_syntax.StringLit "test %d %s\n"));
-                           (C_syntax.ExId "argc");
-                           (C_syntax.ExArrIdx ((C_syntax.ExId "argv"),
-                              (C_syntax.ExLiteral (C_syntax.IntLit 0))))
-                           ]
-                         )));
-                    (C_syntax.StReturn
-                       (Some (C_syntax.ExLiteral (C_syntax.IntLit 0))))
-                    ])
-            ))
+            (Some (C_syntax.StBlock
+                     [(C_syntax.StExpr
+                         (C_syntax.ExCall ("printf",
+                            [(C_syntax.ExLiteral
+                                (C_syntax.StringLit "test %d %s\n"));
+                              (C_syntax.ExId "argc");
+                              (C_syntax.ExArrIdx ((C_syntax.ExId "argv"),
+                                 (C_syntax.ExLiteral (C_syntax.IntLit 0))))
+                              ]
+                            )));
+                       (C_syntax.StReturn
+                          (Some (C_syntax.ExLiteral (C_syntax.IntLit 0))))
+                       ]))
+            ));
+         (C_syntax.FuncGDecl (C_syntax.TVoid, "printf",
+            [((C_syntax.TPtr C_syntax.TChar), "fmt"); (C_syntax.TEllipsis, "")],
+            None))
          ])
     |}]
