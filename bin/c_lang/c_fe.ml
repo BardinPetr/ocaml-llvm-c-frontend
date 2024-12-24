@@ -3,6 +3,8 @@ open Llvm
 
 let llc = Llvm.global_context ()
 let llb = builder llc
+let attr_noinline = create_enum_attr llc "noinline" 0L
+let attr_optnone = create_enum_attr llc "optnone" 0L
 
 module StrMap = Map.Make (String)
 
@@ -18,7 +20,11 @@ let tr_literal = function
   | IntLit i -> const_int (i32_type llc) i
   | FloatLit f -> const_float (float_type llc) f
   | CharLit c -> const_int (i8_type llc) (Char.code c)
-  | StringLit s -> const_stringz llc s
+  | StringLit s ->
+      let str_data = build_global_stringptr s "" llb in
+      build_in_bounds_gep (pointer_type llc) str_data
+        [| const_int (i32_type llc) 0 |]
+        "strtmp" llb
 
 let rec tr_type = function
   | TVoid -> void_type llc
@@ -102,7 +108,13 @@ let rec tr_expression ctx = function
         List.map (fun i -> tr_expression ctx i) e_pars |> Array.of_list
       in
       let ftyp, f = StrMap.find name ctx.globals in
-      build_call ftyp f pars (name ^ "res") llb
+      let retname =
+        if classify_type (return_type ftyp) != TypeKind.Void then
+          name ^ "res"
+        else
+          ""
+      in
+      build_call ftyp f pars retname llb
   | _ -> uie ()
 (*   
   | ExCast c_type, expr -> 
@@ -181,6 +193,8 @@ let tr_entry llm = function
               let nglobals = StrMap.add name (f_typ, f) globals in
               (match body with
               | Some x ->
+                  add_function_attr f attr_noinline AttrIndex.Function;
+                  add_function_attr f attr_optnone AttrIndex.Function;
                   position_at_end (entry_block f) llb;
                   let locals =
                     tr_function_header (Array.to_list (params f)) args

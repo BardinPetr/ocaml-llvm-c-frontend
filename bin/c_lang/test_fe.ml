@@ -7,15 +7,28 @@ let exec_mod llm =
         (Foreign.funptr Ctypes.(void @-> returning int))
         engine
     in
-    Printf.printf "Return code: %d" (main_func ()))
+    Printf.printf "----RET -> %d----\n" (main_func ()))
 
 let tr x = x |> Main.parse |> C_fe.translate
 let tr_print x = Llvm.dump_module (tr x)
 
 let tr_print_exec x =
   let m = tr x in
+  print_endline "\n----IR----";
   Llvm.dump_module m;
   exec_mod m
+
+let tr_compile_run text =
+  let m = tr text in
+  print_endline "\n----IR----";
+  Llvm.dump_module m;
+  let file = "tmp.ll" in
+  Llvm.print_module file m;
+  print_endline "----COMPILE----";
+  Sys.command ("llc-17 " ^ file) |> ignore;
+  Sys.command "clang-17 -w tmp.s" |> ignore;
+  print_endline "----OUTPUT----";
+  Printf.printf "----RET -> %d----\n" (Sys.command "./a.out")
 
 let%expect_test "calc" =
   tr_print_exec
@@ -31,10 +44,12 @@ let%expect_test "calc" =
 |};
   [%expect
     {|
+    ----IR----
     ; ModuleID = 'main'
     source_filename = "main"
 
-    define i32 @main(i32 %0, ptr %1) {
+    ; Function Attrs: noinline optnone
+    define i32 @main(i32 %0, ptr %1) #0 {
     entry:
       %argv = alloca i32, align 4
       store i32 %0, ptr %argv, align 4
@@ -69,14 +84,14 @@ let%expect_test "calc" =
       %tmp17 = add i32 %tmp16, %tmp15
       ret i32 %tmp17
     }
-    Return code: 89
+
+    attributes #0 = { noinline optnone }
+    ----RET -> 89----
     |}]
 
 let%expect_test "func" =
   tr_print_exec
     {|  
-    void printf(char* fmt, ...);
-
     int func(int a, int b) {
       return a + 2 * b;
     }
@@ -88,13 +103,14 @@ let%expect_test "func" =
       return r;
     }
   |};
-  [%expect {|
+  [%expect
+    {|
+    ----IR----
     ; ModuleID = 'main'
     source_filename = "main"
 
-    declare void @printf(ptr %0, ...)
-
-    define i32 @func(i32 %0, i32 %1) {
+    ; Function Attrs: noinline optnone
+    define i32 @func(i32 %0, i32 %1) #0 {
     entry:
       %a = alloca i32, align 4
       store i32 %0, ptr %a, align 4
@@ -107,7 +123,8 @@ let%expect_test "func" =
       ret i32 %tmp3
     }
 
-    define i32 @main(i32 %0, ptr %1) {
+    ; Function Attrs: noinline optnone
+    define i32 @main(i32 %0, ptr %1) #0 {
     entry:
       %argv = alloca i32, align 4
       store i32 %0, ptr %argv, align 4
@@ -125,5 +142,58 @@ let%expect_test "func" =
       %tmp2 = load i32, ptr %r, align 4
       ret i32 %tmp2
     }
-    Return code: 50
+
+    attributes #0 = { noinline optnone }
+    ----RET -> 50----
+    |}]
+
+let%expect_test "printf" =
+  tr_compile_run
+    {|  
+    int printf(char* fmt, ...);
+
+    int main(int argv, char** argc) {
+      char* a = "\n\n\t\thehe\n\n";
+      int abc = 123123; 
+      printf("Hello world! %d %s", abc, a);
+      return 0;
+    }
+  |};
+  [%expect {|
+    ----IR----
+    ; ModuleID = 'main'
+    source_filename = "main"
+
+    @0 = private unnamed_addr constant [11 x i8] c"\0A\0A\09\09hehe\0A\0A\00", align 1
+    @1 = private unnamed_addr constant [19 x i8] c"Hello world! %d %s\00", align 1
+
+    declare i32 @printf(ptr %0, ...)
+
+    ; Function Attrs: noinline optnone
+    define i32 @main(i32 %0, ptr %1) #0 {
+    entry:
+      %argv = alloca i32, align 4
+      store i32 %0, ptr %argv, align 4
+      %argc = alloca ptr, align 8
+      store ptr %1, ptr %argc, align 8
+      %a = alloca ptr, align 8
+      store ptr @0, ptr %a, align 8
+      %abc = alloca i32, align 4
+      store i32 123123, ptr %abc, align 4
+      %tmp = load i32, ptr %abc, align 4
+      %tmp1 = load ptr, ptr %a, align 8
+      %printfres = call i32 (ptr, ...) @printf(ptr @1, i32 %tmp, ptr %tmp1)
+      ret i32 0
+    }
+
+    attributes #0 = { noinline optnone }
+    ----COMPILE----
+    /usr/bin/ld: /tmp/build_8ad482_dune/tmp-46dca4.o: warning: relocation in read-only section `.text'
+    /usr/bin/ld: warning: creating DT_TEXTREL in a PIE
+    ----OUTPUT----
+    Hello world! 123123
+
+    hehe
+
+    ----RET -> 0----
     |}]
