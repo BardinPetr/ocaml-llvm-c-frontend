@@ -67,3 +67,22 @@ let%expect_test "calc" =
     }
     Return code: 89
     |}]
+
+let%expect_test "func" =
+  tr_print_exec
+    {|  
+    void printf(char* fmt, ...);
+
+    //int func(int a, int b) {
+      //return a + 2 * b;
+    int func() {
+      return 0;
+    }
+
+    int main(int argv, char** argc) {
+      int p1 = 10;
+      int p2 = 20;
+      int r = func(p1, p2);
+      return r;
+    }
+  |}

@@ -6,9 +6,13 @@ let llb = builder llc
 
 module StrMap = Map.Make (String)
 
-type m_var = lltype * llvalue StrMap.t
-
 let uie () = failwith "not implemented"
+
+type llv_map = (lltype * llvalue) StrMap.t
+type tr_context = { llm : llmodule; locals : llv_map; globals : llv_map }
+
+let ctx_update old_ctx nlocals =
+  { locals = nlocals; globals = old_ctx.globals; llm = old_ctx.llm }
 
 let tr_literal = function
   | IntLit i -> const_int (i32_type llc) i
@@ -29,15 +33,15 @@ let rec tr_type = function
   | TArray (base, dim) -> vector_type (tr_type base) dim
   | TEllipsis -> failwith "invalid use of ..."
 
-let rec lvalue_of_expression locals = function
+let rec lvalue_of_expression ctx = function
   | ExId n ->
-      let typ, var = StrMap.find n locals in
+      let typ, var = StrMap.find n ctx.locals in
       (typ, var)
   | ExArrIdx _ | ExUOpPre _ | ExAccess _ | ExPAccess _ | ExCast _ ->
       failwith "not implemented"
   | _ -> failwith "invalid lvalue"
 
-let rec tr_expression locals = function
+let rec tr_expression ctx = function
   | ExLiteral l -> tr_literal l
   | ExBOp (op, e1, e2) ->
       let exec =
@@ -61,41 +65,46 @@ let rec tr_expression locals = function
         | OpCmpEq -> build_icmp Icmp.Eq
         | OpCmpNe -> build_icmp Icmp.Ne
       in
-      exec (tr_expression locals e1) (tr_expression locals e2) "tmp" llb
+      exec (tr_expression ctx e1) (tr_expression ctx e2) "tmp" llb
   | ExUOpPre (op, e) -> (
-      let tr_e = tr_expression locals e in
+      let tr_e = tr_expression ctx e in
       match op with
       | UOMinus -> build_neg tr_e "tmp" llb
       | UOInv -> build_not tr_e "tmp" llb
-      | UOInc -> tr_expression locals (ExAOp (AsnAdd, e, ExLiteral (IntLit 1)))
-      | UODec -> tr_expression locals (ExAOp (AsnSub, e, ExLiteral (IntLit 1)))
+      | UOInc -> tr_expression ctx (ExAOp (AsnAdd, e, ExLiteral (IntLit 1)))
+      | UODec -> tr_expression ctx (ExAOp (AsnSub, e, ExLiteral (IntLit 1)))
       | UONeg -> uie ()
       | UODeref -> uie ()
       | UORef -> uie ())
   | ExUOpPost (op, e) ->
-      let tr_e = tr_expression locals e in
+      let tr_e = tr_expression ctx e in
       let exec =
         match op with UOInc -> uie () | UODec -> uie () | _ -> uie ()
       in
       exec "tmp" llb
   | ExId n ->
-      let typ, var = StrMap.find n locals in
+      let typ, var = StrMap.find n ctx.locals in
       build_load typ var "tmp" llb
   | ExAOp (op, tgt, src) ->
-      let lv_typ, lv_tgt = lvalue_of_expression locals tgt in
-      let src = tr_expression locals src in
+      let lv_typ, lv_tgt = lvalue_of_expression ctx tgt in
+      let src = tr_expression ctx src in
       let src_value =
         match op with
         | AsnBase -> src
-        | AsnAdd -> build_add (tr_expression locals tgt) src "tmp" llb
-        | AsnSub -> build_sub (tr_expression locals tgt) src "tmp" llb
+        | AsnAdd -> build_add (tr_expression ctx tgt) src "tmp" llb
+        | AsnSub -> build_sub (tr_expression ctx tgt) src "tmp" llb
         | _ -> uie ()
       in
       build_store src_value lv_tgt llb |> ignore;
       build_load lv_typ lv_tgt "tmp" llb
+  | ExCall (name, e_pars) ->
+      let pars =
+        List.map (fun i -> tr_expression ctx i) e_pars |> Array.of_list
+      in
+      let ftyp, f = StrMap.find name ctx.globals in
+      build_call ftyp f pars (name ^ "res") llb
   | _ -> uie ()
 (*   
-  | ExCall name, expr list ->  
   | ExCast c_type, expr -> 
   | ExSizeof c_type -> 
   | ExTernary expr, expr, expr -> 
@@ -104,24 +113,24 @@ let rec tr_expression locals = function
   | ExPAccess expr, string -> 
   *)
 
-let rec tr_statement locals = function
+let rec tr_statement ctx = function
   | StExpr expr ->
-      tr_expression locals expr |> ignore;
-      locals
+      tr_expression ctx expr |> ignore;
+      ctx
   | StDecl (DeclVar (typ, name, init)) ->
       let typ = tr_type typ in
       let var = build_alloca typ name llb in
       (match init with
-      | Some e -> build_store (tr_expression locals e) var llb |> ignore
+      | Some e -> build_store (tr_expression ctx e) var llb |> ignore
       | _ -> ());
-      StrMap.add name (typ, var) locals
+      ctx_update ctx (StrMap.add name (typ, var) ctx.locals)
   | StReturn None ->
       build_ret_void llb |> ignore;
-      locals
+      ctx
   | StReturn (Some e) ->
-      build_ret (tr_expression locals e) llb |> ignore;
-      locals
-  | StBlock lst -> List.fold_left (fun l i -> tr_statement l i) locals lst
+      build_ret (tr_expression ctx e) llb |> ignore;
+      ctx
+  | StBlock lst -> List.fold_left tr_statement ctx lst
   | _ -> failwith "not implemented"
 (*
   | StIf expr * stmt * stmt option -> 
@@ -147,28 +156,35 @@ let tr_function_proto typ_ret typ_args =
 
 let tr_entry llm = function
   | Prog decls ->
-      decls
-      |> List.iter (function
-           | FuncGDecl (typ_ret, name, args, body) -> (
-               let f_typ =
-                 tr_function_proto typ_ret (List.map (fun (i, _) -> i) args)
-               in
-               let f =
-                 if Option.is_none body then
-                   declare_function name f_typ llm
-                 else
-                   define_function name f_typ llm
-               in
-               match body with
-               | Some x ->
-                   position_at_end (entry_block f) llb;
-                   tr_statement StrMap.empty x |> ignore
-               | _ -> ())
-           | _ -> ())
+      List.fold_left
+        (fun globals d ->
+          match d with
+          | FuncGDecl (typ_ret, name, args, body) ->
+              let f_typ =
+                tr_function_proto typ_ret (List.map (fun (i, _) -> i) args)
+              in
+              let f =
+                if Option.is_none body then
+                  declare_function name f_typ llm
+                else
+                  define_function name f_typ llm
+              in
+              let nglobals = StrMap.add name (f_typ, f) globals in
+              (match body with
+              | Some x ->
+                  position_at_end (entry_block f) llb;
+                  let fctx =
+                    { locals = StrMap.empty; globals = nglobals; llm }
+                  in
+                  tr_statement fctx x |> ignore
+              | _ -> ());
+              nglobals
+          | _ -> globals)
+        StrMap.empty decls
 
 let translate (ast : program) =
   let llm = create_module llc "main" in
-  tr_entry llm ast;
+  tr_entry llm ast |> ignore;
 
   let v = Llvm_analysis.verify_module llm in
   if Option.is_some v then print_endline (Option.get v);
